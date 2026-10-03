@@ -1,0 +1,68 @@
+# tickets.toml — the agreed children of epic-dev-environment. tickets.py reads it.
+# The order of the tables is the build order. `id` names a child for good and is never reused.
+
+[[entry]]
+id = 1
+type = "story"
+title = "Build and headless-run a minimal ROM"
+description = "Installs GBDK and PyBoy into a git-ignored tools folder, builds a ROM that prints text with one command, runs it headless to save a screenshot, and starts the setup instructions."
+verify = "The build exits 0 and produces a .gb file, a deliberate C syntax error makes it exit non-zero with the compiler's message, and the headless run saves a screenshot showing the text with no window opened."
+covers = ["CAP-1", "CAP-2", "CAP-4"]
+after = []
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 2
+type = "story"
+title = "Proof ROM reacts to a button and the check asserts it"
+description = "Makes the ROM from entry 1 visibly change on a button press, and extends entry 1's headless script to press the button and exit 0 on pass and non-zero on fail."
+verify = "The headless check passes on the ROM and fails when the button handling is removed."
+covers = ["CAP-5", "CAP-2"]
+after = [1]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 3
+type = "story"
+title = "A PNG becomes graphics on screen"
+description = "Adds PNG conversion to the build so the proof ROM displays a graphic from an image file in the repository, keeping the ROM at 32K or smaller, and extends the instructions."
+verify = "Editing the PNG and rebuilding changes the headless check's screenshot with no hand-edited C, and the ROM file is 32K or smaller."
+covers = ["CAP-6"]
+after = [2]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 4
+type = "story"
+title = "Step through C in VS Code with Emulicious"
+description = "Unpacks a Java runtime and Emulicious into the tools folder, configures the VS Code debugger extension and a debug build, extends the instructions, and records the answers to the epic's three open questions; the user does the breakpoint check by hand."
+verify = "The user sets a breakpoint on a C line in VS Code and execution stops there in Emulicious with variable values shown."
+covers = ["CAP-3", "CAP-4"]
+after = [3]
+hitl = true
+risk = "low"
+
+[[entry]]
+id = 5
+type = "story"
+title = "Refactor sweep"
+description = "Cleans up the build file, C source, check script, and instructions; scope is set when it starts from the plans and deferred review findings of entries 1 to 4."
+verify = "The build and the headless check still pass after the cleanup."
+covers = ["CAP-1", "CAP-2"]
+after = [1, 2, 3, 4]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 6
+type = "story"
+title = "Rebuild from the instructions alone"
+description = "Deletes the tools folder and follows the written instructions step by step, fixing every gap and making sure each step says why it exists."
+verify = "After the rebuild from instructions, the build and the headless check both pass."
+covers = ["CAP-4"]
+after = [5]
+hitl = false
+risk = "low"
