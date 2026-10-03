@@ -1,0 +1,9 @@
+[
+ {"claim":"GBDK-2020 4.5.0 is the latest stable release","class":"version","pub_date":"2026-10"},
+ {"claim":"hUGEDriver v6.1.3 prebuilt lib; newer commits unreleased","class":"version","pub_date":"2026-10"},
+ {"claim":"EverDrive-GB X3 $44 / X5 $59 / X7 $134","class":"pricing","pub_date":"2026-10"},
+ {"claim":"EZ-Flash Junior about $54 at reseller","class":"pricing","pub_date":"2026-10"},
+ {"claim":"Emulicious and its VS Code debugger are maintained","class":"ecosystem","pub_date":"2026-03"},
+ {"claim":"PyBoy headless API available (v2.7.x)","class":"ecosystem","pub_date":"2026-05"},
+ {"claim":"GBDK-2020 is the only maintained C toolchain for the Game Boy","class":"landscape","pub_date":"2026-10"}
+]
