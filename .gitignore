@@ -9,6 +9,9 @@
 build/
 obj/
 
+# Downloaded tools (GBDK, Python environment); see docs/setup.md
+tools/
+
 # Personal Claude Code settings
 .claude/settings.local.json
 

@@ -3,14 +3,14 @@ title: 'Build and headless-run a minimal ROM'
 type: 'feature'
 ticket: '1'
 created: '2026-10-03'
-status: 'draft'
-baseline_revision: ''
+status: 'built'
+baseline_revision: '4e163800061245a53364113582a0495a11b625c2'
 route: 'full'
 route_source: 'auto'
 risk: 'low'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'quick'
+review_source: 'pinned'
+lenses_ran: ['quick']
 review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/initiative-gbrythm/epic-dev-environment/spec-dev-environment/stack.md'
@@ -64,12 +64,12 @@ Greenfield: the repository holds only `.gitignore` and BMad output. Nothing to r
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `.gitignore` -- add `tools/` -- tool binaries are never committed.
-- [ ] `docs/setup.md` -- write the setup instructions: download GBDK, verify the checksum, unpack to `tools/gbdk`; create `tools/venv` and install pinned PyBoy and Pillow; then build and check. Each step carries a short "why". Run every command exactly as written while writing it -- the instructions are the install, so they are proven as they are authored.
-- [ ] `src/main.c` -- minimal program that prints a line of text and idles -- gives the build and the check something visible.
-- [ ] `Makefile` -- default target builds `build/gbrythm.gb` from `src/*.c` with `tools/gbdk/bin/lcc`; `check` target runs the script with `tools/venv/bin/python`; `clean` removes `build/`; fail early with a pointer to `docs/setup.md` when a tool path is missing -- one command per capability.
-- [ ] `scripts/check_rom.py` -- load the ROM in PyBoy with no window, advance enough frames for the text to appear, save `build/screenshot.png`, exit non-zero when the ROM is missing or the screen is one flat colour -- the agent's eyes.
-- [ ] Verify the matrix -- run each row, including a deliberate syntax error that is reverted afterwards, and look at the screenshot.
+- [x] `.gitignore` -- add `tools/` -- tool binaries are never committed.
+- [x] `docs/setup.md` -- write the setup instructions: download GBDK, verify the checksum, unpack to `tools/gbdk`; create `tools/venv` and install pinned PyBoy and Pillow; then build and check. Each step carries a short "why". Run every command exactly as written while writing it -- the instructions are the install, so they are proven as they are authored.
+- [x] `src/main.c` -- minimal program that prints a line of text and idles -- gives the build and the check something visible.
+- [x] `Makefile` -- default target builds `build/gbrythm.gb` from `src/*.c` with `tools/gbdk/bin/lcc`; `check` target runs the script with `tools/venv/bin/python`; `clean` removes `build/`; fail early with a pointer to `docs/setup.md` when a tool path is missing -- one command per capability.
+- [x] `scripts/check_rom.py` -- load the ROM in PyBoy with no window, advance enough frames for the text to appear, save `build/screenshot.png`, exit non-zero when the ROM is missing or the screen is one flat colour -- the agent's eyes.
+- [x] Verify the matrix -- run each row, including a deliberate syntax error that is reverted afterwards, and look at the screenshot.
 
 **Acceptance Criteria:**
 - Given a checkout with `tools/` installed per `docs/setup.md`, when `make clean && make` runs, then it exits 0 and `build/gbrythm.gb` exists at 32768 bytes or fewer.
@@ -80,9 +80,26 @@ Greenfield: the repository holds only `.gitignore` and BMad output. Nothing to r
 
 ## Implementation Notes
 
+- Files: `.gitignore`, `Makefile`, `src/main.c`, `scripts/check_rom.py`, `docs/setup.md`. Installed `tools/gbdk` (checksum OK) and `tools/venv`.
+- Objects compile to `build/` through a pattern rule so compiler by-products (`.asm`, `.lst`, `.sym`, `.ihx`) stay out of `src/`.
+- `.DELETE_ON_ERROR` plus tool checks as order-only prerequisites: a failed compile leaves no fresh-looking ROM, and a missing tool gives the pointer to `docs/setup.md`.
+- The venv uses the system Python 3.13 that `uv` finds; the plan named only `make` and `uv` as machine tools. `uv` downloads a Python when none exists, so the instructions still hold. Pillow pinned at 12.3.0.
+- The ROM is exactly 32768 bytes: GBDK pads to the 32K minimum, so the size is the limit, not near-overflow.
+- PyBoy refuses a file with a bad header checksum before running it, so the flat-colour row was verified with a real ROM that draws nothing.
+- Matrix rows verified by hand, no automated test suite: build exit 0; syntax error exit 2 with `src/main.c:9: syntax error`; missing GBDK exit 2 with pointer; check exit 0 with `DISPLAY` unset, 160x144 screenshot showing `GBRYTHM / BUILD OK`; missing ROM exit 1; blank ROM exit 1.
+- The venv was deleted and recreated with the exact commands in `docs/setup.md`; the GBDK commands were run as written the first time.
+
 ## Plan Change Log
 
 ## Review Triage Log
+
+Pass 1 (quick lens, run inline by the implementing session, not by an independent reviewer; the user did not opt in to subagents). Verdicts: high 0, medium 0, low 2, false 1, maybe-false 0.
+
+| Finding | Verdict | Route | Evidence |
+|---|---|---|---|
+| `Makefile` object rule ignores header files, so editing a future `src/*.h` would not rebuild | low | patch | Real once a header exists (stories 2-3). Fixed: objects now depend on `$(wildcard src/*.h)`; build and check re-run clean. |
+| `Makefile` with no `src/*.c` calls `lcc` with no inputs | low | rejected | Real but not reachable in everyday use; `src/main.c` always exists and a guard adds complexity. |
+| `scripts/check_rom.py` flat-colour test misfires when `getcolors()` returns `None` | false | rejected | `None` means more than 256 colours, which is not flat; the code checks `is not None` before comparing. |
 
 ## Design Notes
 
