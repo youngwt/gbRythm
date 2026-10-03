@@ -1,0 +1,17 @@
+# Game Boy build output
+*.gb
+*.gbc
+*.sav
+*.sym
+*.map
+*.o
+*.lst
+build/
+obj/
+
+# Personal Claude Code settings
+.claude/settings.local.json
+
+# OS / editor clutter
+.DS_Store
+*.swp
