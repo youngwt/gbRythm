@@ -1,6 +1,6 @@
 # Setting up the gbRythm development environment
 
-These steps take a fresh checkout to a built Game Boy ROM and a screenshot of it running. Run every command from the repository root.
+These steps take a fresh checkout to a built Game Boy ROM and screenshots of it running. Run every command from the repository root.
 
 Everything is installed into `tools/`, a folder inside the repository that git ignores. Nothing is installed system-wide, because SteamOS keeps its system partition read-only and wipes changes to it on OS updates. To start again, delete `tools/` and repeat these steps.
 
@@ -77,11 +77,17 @@ This compiles `src/*.c` and writes the ROM to `build/gbrythm.gb`. The `Makefile`
 make check
 ```
 
-This builds the ROM if needed, runs it in PyBoy for 120 frames (about two seconds of Game Boy time) with no window, and saves the screen to `build/screenshot.png`. It prints `PASS` and exits 0, or prints `FAIL` and exits non-zero if the ROM is missing or the screen is blank.
+This builds the ROM if needed and runs it in PyBoy with no window. The check:
+
+1. runs the ROM for 120 frames (about two seconds of Game Boy time) and saves the screen to `build/screenshot-before.png`;
+2. taps the A button, runs 60 more frames, and saves the screen to `build/screenshot-after.png`;
+3. compares the two.
+
+It prints `PASS` and exits 0 when the screen changed. It prints `FAIL` and exits non-zero if the ROM is missing, the screen is blank, or pressing A changed nothing. Comparing before and after is what proves button input reaches the C program: a ROM that ignores the button fails.
 
 PyBoy prints a warning about "SDL2 binaries from pysdl2-dll". It is informational and can be ignored.
 
-Open `build/screenshot.png` to see what the ROM drew. It should show two lines of text: `GBRYTHM` and `BUILD OK`.
+Open the two screenshots to see what the ROM drew. Before shows `GBRYTHM` and `PRESS A`; after adds a third line, `A PRESSED`.
 
 ## Where things are
 
@@ -92,4 +98,4 @@ Open `build/screenshot.png` to see what the ROM drew. It should show two lines o
 | `scripts/check_rom.py` | The headless check | yes |
 | `tools/gbdk/` | GBDK-2020 4.5.0 | no |
 | `tools/venv/` | Python environment with PyBoy | no |
-| `build/` | The ROM, screenshot and compiler output | no |
+| `build/` | The ROM, screenshots and compiler output | no |

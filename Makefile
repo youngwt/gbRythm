@@ -31,7 +31,7 @@ $(BUILD_DIR):
 	mkdir -p $@
 
 check: $(ROM) | require-python
-	$(PYTHON) scripts/check_rom.py $(ROM) $(BUILD_DIR)/screenshot.png
+	$(PYTHON) scripts/check_rom.py $(ROM) $(BUILD_DIR)
 
 clean:
 	rm -rf $(BUILD_DIR)
