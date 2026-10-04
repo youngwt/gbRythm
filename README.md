@@ -19,8 +19,8 @@ Then, from the repository root:
 
 ## Layout
 
-- `src/` — C source for the ROM
+- `src/` — C source for the ROM, including the song in `song.c`
 - `assets/` — PNG images, converted to C by the build
 - `scripts/` — the headless check, and a helper that starts Java
-- `docs/setup.md` — installing the tools, with the reason for each step
+- `docs/setup.md` — installing the tools, with the reason for each step, and how the images and the music work
 - `_bmad-output/` — specs, plans and tickets

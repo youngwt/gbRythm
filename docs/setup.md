@@ -228,6 +228,39 @@ Because the numbers depend on the images before, changing any PNG reconverts all
 
 Moving objects, called sprites, use a separate set of tiles and are not covered here.
 
+## How the music works
+
+This section explains the music from scratch. The song itself is `src/song.c`, and its comments repeat the details beside the code.
+
+**The sound hardware.** The Game Boy has four sound channels, each a simple tone generator, and their outputs are mixed together:
+
+| Channel | What it makes | Typical use |
+|---|---|---|
+| 1 | A square wave: a plain beep. Its pitch can also slide | Melody |
+| 2 | A square wave | Harmony or a second melody |
+| 3 | A short wave shape that the program supplies | Bass, softer tones |
+| 4 | Noise: a hiss | Drums |
+
+A program makes a note by writing a pitch and a volume to a channel. Nothing plays a tune on its own: to play music, something has to write the next note at the right moment, over and over.
+
+**The music driver.** That something is the driver, hUGEDriver. The C program hands it a song and arranges for it to be called once per frame, sixty times a second. Each call, the driver works out whether it is time for the next step of the song and writes to the channels if so. In `src/main.c` this is three lines that switch the sound hardware on, then `hUGE_init` to hand over the song and `add_VBL` to have the driver called every frame.
+
+**The song file.** A song is a table of notes, in the same form the hUGETracker editor would write. It is plain C, so it can be written and changed as text; this one was written by hand.
+
+- A **pattern** is 64 rows. Each row is `DN(note, instrument, effect)`. A note is a name such as `G_5`, or `___` to leave the channel as it is, so a note keeps sounding until another replaces it. The driver steps through the rows one at a time.
+- Each channel plays its own pattern, and the four are stepped through together. Here channel 1 plays `melody` and the other three play `silence`, a pattern of empty rows.
+- The **order** lists which pattern each channel plays at each step of the song. This song has one step, so it loops after 64 rows.
+- An **instrument** says how a note sounds: its starting volume, how it fades, and its wave shape. Instrument 1 starts at full volume and fades slowly. A row cannot say "stop", so instrument 2, which has no volume, is used as a rest.
+- The **tempo** is how many frames each row lasts. At 10, a row is a sixth of a second.
+
+**Reading the melody.** "Amazing Grace" has three beats to the bar. In this file one beat is four rows, so a half note is eight rows and an eighth note is two. The phrase "Amazing grace, how sweet the sound" is D G B G B A G E D and takes 48 rows; a rest fills the other 16 before it repeats.
+
+One trap: the driver names octaves one higher than usual. Its `D_5` sounds as the D just above middle C, which most music, and the headless check, calls D4.
+
+**Changing the tune.** Edit a note name in `src/song.c` and run `make check`. The check prints the notes it heard, so the change shows up there without anyone listening: changing `E_5` to `Fs5` turns `... G4 E4 D4` into `... G4 F#4 D4`. To change the speed, change the tempo number at the bottom of the file. To hear it, run `make run`.
+
+**What is not here yet.** One channel, one phrase, no drums and no sound effects. Having the game react in time with the music is for the game itself.
+
 ## Everyday commands
 
 Once the tools are installed, these are all you need. Run them from the repository root.

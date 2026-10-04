@@ -64,14 +64,20 @@ def note_in(samples: np.ndarray, sample_rate: int) -> str | None:
 def notes_heard(per_frame: list[str | None]) -> list[str]:
     """Reduce a note per frame to the notes played, in order."""
     played: list[str] = []
+    after_silence = True
     run_note, run_length = None, 0
     for note in per_frame + [None]:
         if note == run_note:
             run_length += 1
             continue
-        if run_note is not None and run_length >= MIN_NOTE_FRAMES:
-            if not played or played[-1] != run_note:
+        if run_length >= MIN_NOTE_FRAMES:
+            if run_note is None:
+                after_silence = True
+            # The same note twice in a row is one note interrupted by a
+            # click, unless there was a real silence between.
+            elif after_silence or played[-1] != run_note:
                 played.append(run_note)
+                after_silence = False
         run_note, run_length = note, 1
     return played
 
