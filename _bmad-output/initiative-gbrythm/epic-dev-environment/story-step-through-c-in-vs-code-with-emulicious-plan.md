@@ -74,7 +74,7 @@ context:
 - [x] `.vscode/launch.json`, `.vscode/tasks.json`, `.vscode/extensions.json` -- launch `build/debug/gbrythm.gb` with `emuliciousPath`, `javaPath`, `additionalSrcFolders` and a `preLaunchTask` running `make debug`; recommend the extension -- F5 builds and debugs with no per-user settings.
 - [x] VS Code -- `code --install-extension emulicious.emulicious-debugger`, falling back to the VSIX -- the debugger itself.
 - [x] `docs/setup.md` -- sections for Java, Emulicious, the extension, playing the ROM and debugging step by step; a "What was found" note answering the Java and extension questions; extend the table -- CAP-4 and the story's record.
-- [ ] User check -- hand over: press F5, set the breakpoint, press A in Emulicious.
+- [x] User check -- hand over: press F5, set the breakpoint, press A in Emulicious.
 
 **Acceptance Criteria:**
 - Given tools installed, when `make debug` runs, then `build/debug/gbrythm.cdb` exists and names `main.c`.
@@ -97,6 +97,7 @@ Implemented inline, without a subagent, as the user chose.
 - Verified: `make debug` writes `build/debug/gbrythm.gb` and `.cdb`, and the `.cdb` has a line record for `main.c` line 27; after `make clean && make` the normal ROM's sha256 is `26c228a0...8803`, the same as before the change, and `make check` passes; `make run` with the jar missing exits non-zero with the pointer to `docs/setup.md`; Emulicious started through the wrapper accepts a connection on 58870 and answers the debug protocol's `initialize` and `launch` requests.
 - Not verified: a breakpoint stopping. A hand-written protocol client got "Adapter not ready" when setting a breakpoint and never received the adapter's ready event. That may be the client and not the setup; the user's F5 check settles it. The Emulicious window was not seen by the agent either.
 - The user check task stays open.
+- 2026-10-04, later: the user ran the F5 check and reported "F5 worked". The "Adapter not ready" result came from the hand-written client, not the setup.
 
 ## Plan Change Log
 
@@ -108,6 +109,7 @@ Quick lens run inline by the implementing session, not by an independent reviewe
 - low, patched: the extension gives up connecting after 25 tries of 0.1 s, which a slow Java start through `flatpak-spawn` could exceed. `.vscode/settings.json` sets 100.
 - low, patched: `docs/setup.md` said steps 5 to 8 were "for a person, not an agent", which is wrong for the install steps. Reworded.
 - maybe-false, deferred to the user check: breakpoints may not bind (see "Not verified" above). Would be high if true. Settled by the user pressing F5 with a breakpoint on `src/main.c` line 27.
+- Follow-up to the row above: false. The user reported that F5 worked.
 
 ## Design Notes
 
