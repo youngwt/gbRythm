@@ -2,7 +2,7 @@
 
 These steps take a fresh checkout to a built Game Boy ROM and screenshots of it running, and then to playing and debugging it in an emulator. Run every command from the repository root.
 
-Everything is installed into `tools/`, a folder inside the repository that git ignores. Nothing is installed system-wide, because SteamOS keeps its system partition read-only and wipes changes to it on OS updates. To start again, delete `tools/` and repeat these steps.
+Everything is installed into `tools/`, a folder inside the repository that git ignores. Nothing is installed system-wide, because SteamOS keeps its system partition read-only and wipes changes to it on OS updates. To start again, delete `tools/` and repeat these steps. The one thing you lose is `tools/emulicious/Emulicious.ini`, where Emulicious keeps its settings such as key bindings; copy it out first if you have changed them.
 
 ## What you need already
 
@@ -159,7 +159,7 @@ This lets you stop the running ROM on a line of C and look at the variables.
 Install the Emulicious Debugger extension, version 1.3.0. VS Code offers it when you open this folder, because `.vscode/extensions.json` recommends it, or install it from the terminal:
 
 ```sh
-code --install-extension emulicious.emulicious-debugger
+code --install-extension emulicious.emulicious-debugger@1.3.0
 ```
 
 Then:
