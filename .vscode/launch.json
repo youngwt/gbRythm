@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug in Emulicious",
+            "type": "emulicious-debugger",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/debug/gbrythm.gb",
+            "port": 58870,
+            "stopOnEntry": false,
+            "emuliciousPath": "${workspaceFolder}/tools/emulicious/Emulicious.jar",
+            "javaPath": "${workspaceFolder}/scripts/java-host.sh",
+            "additionalSrcFolders": "${workspaceFolder}/src;${workspaceFolder}/build/debug",
+            "preLaunchTask": "make debug"
+        }
+    ]
+}

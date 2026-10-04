@@ -5,6 +5,13 @@ GBDK_HOME ?= tools/gbdk
 LCC       := $(GBDK_HOME)/bin/lcc
 PNG2ASSET := $(GBDK_HOME)/bin/png2asset
 PYTHON    := tools/venv/bin/python
+# Java is started through a wrapper so that it opens its window on the host
+# when make runs inside the VS Code Flatpak; see docs/setup.md.
+JAVA       := scripts/java-host.sh
+EMULICIOUS := tools/emulicious/Emulicious.jar
+
+# Extra compiler flags; empty for the normal build, set by the debug target.
+LCCFLAGS  ?=
 
 BUILD_DIR := build
 ROM       := $(BUILD_DIR)/gbrythm.gb
@@ -22,21 +29,21 @@ OBJECTS   := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES)) \
 # never leaves a ROM that looks up to date.
 .DELETE_ON_ERROR:
 
-.PHONY: all check clean require-gbdk require-python
+.PHONY: all debug run check clean require-gbdk require-python require-emulicious
 
 all: $(ROM)
 
 $(ROM): $(OBJECTS) | require-gbdk
-	$(LCC) -o $@ $(OBJECTS)
+	$(LCC) $(LCCFLAGS) -o $@ $(OBJECTS)
 
 # Every object depends on every header and every converted image: coarse,
 # but a changed header or PNG can never leave a stale object behind.
 # -I$(BUILD_DIR) lets source files include the generated image headers.
 $(BUILD_DIR)/%.o: src/%.c $(HEADERS) $(ASSET_SRCS) | $(BUILD_DIR) require-gbdk
-	$(LCC) -I$(BUILD_DIR) -c -o $@ $<
+	$(LCC) $(LCCFLAGS) -I$(BUILD_DIR) -c -o $@ $<
 
 $(BUILD_DIR)/%.o: $(BUILD_DIR)/%.c | require-gbdk
-	$(LCC) -c -o $@ $<
+	$(LCC) $(LCCFLAGS) -c -o $@ $<
 
 # Convert a PNG to C as a background image: a set of 8x8 tiles plus a map
 # saying which tile goes where. This writes both the .c and its .h.
@@ -61,6 +68,18 @@ $(BUILD_DIR):
 check: $(ROM) | require-python
 	$(PYTHON) scripts/check_rom.py $(ROM) $(BUILD_DIR)
 
+# Build a second ROM for the debugger in build/debug, leaving the normal ROM
+# alone. -debug writes the .cdb file that maps machine code back to C lines.
+# -Wf--max-allocs-per-node0 turns off an optimisation that reorders code, so
+# stepping follows the C source line by line; it makes the code bigger and
+# slower, which is why the ROM that "make check" tests is built without it.
+debug:
+	$(MAKE) BUILD_DIR=$(BUILD_DIR)/debug LCCFLAGS="-debug -Wf--max-allocs-per-node0"
+
+# Open the ROM in Emulicious to play it.
+run: $(ROM) | require-emulicious
+	$(JAVA) -jar $(EMULICIOUS) $(ROM)
+
 clean:
 	rm -rf $(BUILD_DIR)
 
@@ -69,3 +88,6 @@ require-gbdk:
 
 require-python:
 	@test -x $(PYTHON) || { echo "PyBoy environment not found at $(PYTHON). Follow docs/setup.md."; exit 1; }
+
+require-emulicious:
+	@test -f $(EMULICIOUS) -a -x tools/java/bin/java || { echo "Emulicious or Java not found in tools/. Follow docs/setup.md."; exit 1; }
