@@ -3,7 +3,7 @@ title: 'Proof ROM reacts to a button and the check asserts it'
 type: 'feature'
 ticket: '2'
 created: '2026-10-03'
-status: 'built'
+status: done
 baseline_revision: '1202fe1fe2243ad111df4da18d37f762ff26dd5a'
 route: 'oneshot'
 route_source: 'auto'

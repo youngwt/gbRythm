@@ -3,7 +3,7 @@ title: 'Build and headless-run a minimal ROM'
 type: 'feature'
 ticket: '1'
 created: '2026-10-03'
-status: 'built'
+status: done
 baseline_revision: '4e163800061245a53364113582a0495a11b625c2'
 route: 'full'
 route_source: 'auto'

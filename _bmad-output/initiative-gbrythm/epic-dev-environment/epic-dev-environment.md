@@ -5,6 +5,7 @@ parent: initiative-gbrythm
 covers: []
 after: []
 assignee: ""
+status: done
 risk: low
 ---
 
@@ -52,3 +53,6 @@ The development environment and its proof ROM on this Steam Deck. Not music, gam
 - Open question: which Java version Emulicious needs, and whether a Java runtime unpacked in the repository opens a window from the VS Code Flatpak sandbox or must launch on the host; entry 4 answers it.
 - Open question: whether the Emulicious VS Code debugger extension (last released 2023-11) still works with current Emulicious and VS Code; entry 4 answers it.
 - Open question: whether PyBoy is accurate enough for the proof ROM checks; entry 4 compares its screenshot with Emulicious.
+- Decision: epic closed as accepted with open items; the user confirmed after the retrospective (2026-10-04). See epic-dev-environment-retrospective.md.
+- Decision: the Java and debugger-extension open questions above are answered in docs/setup.md, section "What was found" (2026-10-04).
+- Decision: the PyBoy accuracy question above was split out of entry 4 and is now the standalone ticket backlog/story-pyboy-s-picture-is-compared-with-emulicious-s.md (2026-10-04).

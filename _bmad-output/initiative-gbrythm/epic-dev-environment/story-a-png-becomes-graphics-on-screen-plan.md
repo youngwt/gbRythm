@@ -3,7 +3,7 @@ title: 'A PNG becomes graphics on screen'
 type: 'feature'
 ticket: '3'
 created: '2026-10-03'
-status: 'built'
+status: done
 baseline_revision: 'b5d4b8c5d1975cf5613f6b35980186e152ea4fbe'
 route: 'oneshot'
 route_source: 'auto'

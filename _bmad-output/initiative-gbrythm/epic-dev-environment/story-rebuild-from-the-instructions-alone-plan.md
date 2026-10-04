@@ -3,7 +3,7 @@ title: 'Rebuild from the instructions alone'
 type: 'chore'
 ticket: '6'
 created: '2026-10-04'
-status: 'built'
+status: done
 baseline_revision: 'aa96fec9417fbfdda8a9173b46b771c8db3d1557'
 route: 'oneshot'
 route_source: 'auto'

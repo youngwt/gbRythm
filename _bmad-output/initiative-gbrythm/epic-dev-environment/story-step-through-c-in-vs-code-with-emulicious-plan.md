@@ -3,7 +3,7 @@ title: 'Step through C in VS Code with Emulicious'
 type: 'feature'
 ticket: '4'
 created: '2026-10-04'
-status: 'built'
+status: done
 baseline_revision: 'e9ab0fba7323f95bb0457bb50b24f22f8fe5d2a9'
 route: 'full'
 route_source: 'auto'
