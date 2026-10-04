@@ -71,8 +71,9 @@ $(BUILD_DIR)/%.c: assets/%.png | $(BUILD_DIR) require-gbdk
 $(BUILD_DIR):
 	mkdir -p $@
 
+# The images are passed so the check can confirm each one is on screen.
 check: $(ROM) | require-python
-	$(PYTHON) scripts/check_rom.py $(ROM) $(BUILD_DIR)
+	$(PYTHON) scripts/check_rom.py $(ROM) $(BUILD_DIR) $(ASSETS)
 
 # Build a second ROM for the debugger in build/debug, leaving the normal ROM
 # alone. -debug writes the .cdb file that maps machine code back to C lines.

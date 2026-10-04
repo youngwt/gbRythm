@@ -53,10 +53,10 @@ uv venv tools/venv
 
 `uv` uses the system's Python (3.13 here) for the environment, and downloads one itself if it finds none.
 
-Install PyBoy and Pillow at pinned versions. Pillow is the image library PyBoy uses to hand over the screen as a picture:
+Install PyBoy, Pillow and NumPy at pinned versions. Pillow is the image library PyBoy uses to hand over the screen as a picture. NumPy handles grids of numbers; PyBoy needs it, and the check uses it to search the screen for an image:
 
 ```sh
-uv pip install --python tools/venv/bin/python pyboy==2.7.0 pillow==12.3.0
+uv pip install --python tools/venv/bin/python pyboy==2.7.0 pillow==12.3.0 numpy==2.5.3
 ```
 
 `uv` may warn that hardlinking is not supported across filesystems. That is harmless: it copies the files instead.
@@ -80,10 +80,13 @@ make check
 This builds the ROM if needed and runs it in PyBoy with no window. The check:
 
 1. runs the ROM for 120 frames (about two seconds of Game Boy time) and saves the screen to `build/screenshot-before.png`;
-2. taps the A button, runs 60 more frames, and saves the screen to `build/screenshot-after.png`;
-3. compares the two.
+2. looks for every image in `assets/` on that screen;
+3. taps the A button, runs 60 more frames, and saves the screen to `build/screenshot-after.png`;
+4. compares the two screenshots.
 
-It prints `PASS` and exits 0 when the screen changed. It prints `FAIL` and exits non-zero if the ROM is missing, the screen is blank, or pressing A changed nothing. Comparing before and after is what proves button input reaches the C program: a ROM that ignores the button fails.
+It prints `PASS` and exits 0 when every image was found and the screen changed. It prints `FAIL` and exits non-zero if the ROM is missing, the screen is blank, an image is not on screen, or pressing A changed nothing.
+
+Each part proves something different. Comparing before and after proves button input reaches the C program: a ROM that ignores the button fails. Looking for the images proves the route from PNG to screen still works: a ROM that stops drawing an image, or draws the wrong one, fails with `FAIL: assets/NAME.png was not found on screen`. The check reads the PNG itself and searches the whole screen for it, so after you edit an image, or move it, there is nothing else to update. It compares the Game Boy's four shades, not exact colours, because the emulator's greys differ slightly from the PNG's.
 
 PyBoy prints a warning about "SDL2 binaries from pysdl2-dll". It is informational and can be ignored.
 
