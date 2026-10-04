@@ -3,7 +3,7 @@ title: 'Two images can be shown at once'
 type: 'feature'
 ticket: '3'
 created: '2026-10-04'
-status: 'built'
+status: done
 baseline_revision: 'a1a7a83987212cfa8fe55d7deac154966f454416'
 route: 'oneshot'
 route_source: 'auto'
