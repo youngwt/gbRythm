@@ -3,7 +3,7 @@ title: 'The headless check fails when the image is missing'
 type: 'feature'
 ticket: '1'
 created: '2026-10-04'
-status: 'built'
+status: done
 baseline_revision: 'bcaa738c9042845825b218274459575e5e807067'
 route: 'oneshot'
 route_source: 'auto'
