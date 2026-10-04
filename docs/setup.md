@@ -101,16 +101,18 @@ make check
 This builds the ROM if needed and runs it in PyBoy with no window. The check:
 
 1. runs the ROM for 120 frames (about two seconds of Game Boy time) and saves the screen to `build/screenshot-before.png`;
-2. listens while those frames run, and counts the frames in which the ROM made sound;
-3. looks for every image in `assets/` on that screen;
-4. taps the A button, runs 60 more frames, and saves the screen to `build/screenshot-after.png`;
-5. compares the two screenshots.
+2. looks for every image in `assets/` on that screen;
+3. taps the A button, runs 60 more frames, and saves the screen to `build/screenshot-after.png`;
+4. compares the two screenshots;
+5. keeps the ROM running to ten seconds in all, listening the whole time, and works out which notes it played.
 
-It prints `PASS` and exits 0 when sound was heard, every image was found, and the screen changed. It prints `FAIL` and exits non-zero if the ROM is missing, the screen is blank, an image is not on screen, no sound was produced, or pressing A changed nothing.
+It prints `PASS` and exits 0 when every image was found, the screen changed, and it heard a tune; the message lists the notes, for example `notes heard: D4 G4 B4 G4 B4 A4 G4 E4 D4`. It prints `FAIL` and exits non-zero if the ROM is missing, the screen is blank, an image is not on screen, no sound was produced, the sound never changed note, or pressing A changed nothing.
 
 Each part proves something different. Comparing before and after proves button input reaches the C program: a ROM that ignores the button fails. Looking for the images proves the route from PNG to screen still works: a ROM that stops drawing an image, or draws the wrong one, fails with `FAIL: assets/NAME.png was not found on screen`. The check reads the PNG itself and searches the whole screen for it, so after you edit an image, or move it, there is nothing else to update. It compares the Game Boy's four shades, not exact colours, because the emulator's greys differ slightly from the PNG's.
 
-Listening proves the music is playing: a ROM that never starts the music driver, or leaves the sound hardware switched off, fails with `FAIL: no sound was produced`. Nothing is played out loud. The emulator works out the sound for each frame as a list of numbers, all zero when silent, and the check looks for frames that are not all zero. It ignores the first second, because the ROM makes a short blip about half a second after starting even with no music. For now the check only asks whether there is sound, not what the notes are.
+Listening proves the music is playing. A ROM that never starts the music driver, or leaves the sound hardware switched off, fails with `FAIL: no sound was produced`. A ROM that only holds one note, or swaps between two, fails with `FAIL: the sound did not change note enough to be music`: a tune needs at least three different notes.
+
+Nothing is played out loud. The emulator works out the sound for each frame as a list of numbers, all zero when silent. A plain Game Boy tone switches between off and on at a steady rate, and how fast it switches is the pitch, so the check measures that rate in each frame and names the nearest musical note. It ignores the first second, because the ROM makes a short blip about half a second after starting even with no music. The check does not know which tune to expect; read the notes in its message to see what was played. The note names are the usual ones, where D4 is the D just above middle C.
 
 PyBoy prints a warning about "SDL2 binaries from pysdl2-dll". It is informational and can be ignored.
 
@@ -245,7 +247,7 @@ Once the tools are installed, these are all you need. Run them from the reposito
 | `src/` | C source for the ROM | yes |
 | `assets/` | PNG images shown by the ROM | yes |
 | `Makefile` | Build and check commands | yes |
-| `src/song.c` | The song, as a table of notes | yes |
+| `src/song.c` | The song, the opening of "Amazing Grace", as a table of notes | yes |
 | `scripts/check_rom.py` | The headless check | yes |
 | `scripts/convert-images.sh` | Converts the images to C and hands out their tile numbers | yes |
 | `scripts/java-host.sh` | Starts Java on the host so it can open a window | yes |

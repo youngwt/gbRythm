@@ -5,13 +5,15 @@ Usage: check_rom.py ROM OUTPUT_DIR [IMAGE ...]
 Saves screenshot-before.png and screenshot-after.png to OUTPUT_DIR: the
 screen before and after pressing A. Exits non-zero when the ROM is missing,
 the screen is one flat colour, an IMAGE does not appear on the screen, the
-ROM makes no sound, or pressing A does not change the screen.
+ROM makes no sound, the sound never changes note, or pressing A does not
+change the screen.
 
 Each IMAGE is a PNG the ROM is meant to display. The check looks for it
 anywhere on the screen, so it needs no copy of the image's position and no
 stored reference picture: edit the PNG and the check follows.
 """
 
+import math
 import sys
 from pathlib import Path
 
@@ -27,6 +29,51 @@ REACT_FRAMES = 60
 # half a second after starting even when it plays no music, so sound that
 # early says nothing about the music.
 SOUND_SETTLE_FRAMES = 60
+# How long to listen in all: ten seconds, enough for a whole phrase of music.
+LISTEN_FRAMES = 600
+# A note counts once it has lasted this many frames in a row; shorter runs
+# are the clicks between notes. And music must use at least this many
+# different notes: one held note is sound, but it is not a tune.
+MIN_NOTE_FRAMES = 5
+MIN_DIFFERENT_NOTES = 3
+
+NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+
+
+def note_in(samples: np.ndarray, sample_rate: int) -> str | None:
+    """Name the note sounding in one frame of sound, or None for silence.
+
+    A plain Game Boy tone switches between off and on at a steady rate, and
+    how fast it switches is the pitch. This finds each off-to-on step,
+    measures the usual gap between them, and names the nearest musical note,
+    such as "G4".
+    """
+    if not samples.any():
+        return None
+    on = samples > samples.mean()
+    steps = np.flatnonzero(on[1:] & ~on[:-1])
+    if len(steps) < 3:
+        return None
+    frequency = sample_rate / float(np.median(np.diff(steps)))
+    # 69 is the number musicians give the A above middle C, at 440 Hz; each
+    # step of one is a semitone, twelve to the octave.
+    number = round(69 + 12 * math.log2(frequency / 440))
+    return f"{NOTE_NAMES[number % 12]}{number // 12 - 1}"
+
+
+def notes_heard(per_frame: list[str | None]) -> list[str]:
+    """Reduce a note per frame to the notes played, in order."""
+    played: list[str] = []
+    run_note, run_length = None, 0
+    for note in per_frame + [None]:
+        if note == run_note:
+            run_length += 1
+            continue
+        if run_note is not None and run_length >= MIN_NOTE_FRAMES:
+            if not played or played[-1] != run_note:
+                played.append(run_note)
+        run_note, run_length = note, 1
+    return played
 
 
 def shades(image: Image.Image) -> np.ndarray:
@@ -70,20 +117,29 @@ def main() -> int:
     # worked out, though nothing is played: after each frame the emulator
     # holds that frame's sound as a list of numbers, all zero when silent.
     pyboy = PyBoy(str(rom), window="null", sound_emulated=True)
-    frames_with_sound = 0
-    try:
-        for frame in range(BOOT_FRAMES):
+    per_frame: list[str | None] = []
+
+    def run(frames: int) -> None:
+        """Run the ROM, noting which note sounds in each frame."""
+        for _ in range(frames):
             pyboy.tick()
-            if frame >= SOUND_SETTLE_FRAMES and np.asarray(pyboy.sound.ndarray).any():
-                frames_with_sound += 1
+            # Both speakers carry the same sound here; the left is enough.
+            samples = np.asarray(pyboy.sound.ndarray)[:, 0].astype(int)
+            per_frame.append(note_in(samples, pyboy.sound.sample_rate))
+
+    try:
+        run(BOOT_FRAMES)
         before = pyboy.screen.image.convert("RGB")
         before.save(before_path)
 
         # Press and release A, as a quick tap would.
         pyboy.button("a")
-        pyboy.tick(REACT_FRAMES)
+        run(REACT_FRAMES)
         after = pyboy.screen.image.convert("RGB")
         after.save(after_path)
+
+        # Keep listening until a whole phrase has had time to play.
+        run(LISTEN_FRAMES - BOOT_FRAMES - REACT_FRAMES)
     finally:
         pyboy.stop(save=False)
 
@@ -106,8 +162,15 @@ def main() -> int:
             print(f"FAIL: {image_path} was not found on screen; see {before_path}")
             return 1
 
-    if frames_with_sound == 0:
-        print(f"FAIL: no sound was produced between frames {SOUND_SETTLE_FRAMES} and {BOOT_FRAMES}")
+    notes = notes_heard(per_frame[SOUND_SETTLE_FRAMES:])
+    if not notes:
+        print(f"FAIL: no sound was produced between frames {SOUND_SETTLE_FRAMES} and {LISTEN_FRAMES}")
+        return 1
+    if len(set(notes)) < MIN_DIFFERENT_NOTES:
+        print(
+            f"FAIL: the sound did not change note enough to be music; heard only {' '.join(notes)}, "
+            f"and a tune needs at least {MIN_DIFFERENT_NOTES} different notes"
+        )
         return 1
 
     if before.tobytes() == after.tobytes():
@@ -116,7 +179,7 @@ def main() -> int:
 
     shown = f"{len(image_paths)} image(s) shown, " if image_paths else ""
     print(
-        f"PASS: {shown}sound heard in {frames_with_sound} of {BOOT_FRAMES - SOUND_SETTLE_FRAMES} frames, "
+        f"PASS: {shown}notes heard: {' '.join(notes)}, "
         f"and screen changed after pressing A; see {before_path} and {after_path}"
     )
     return 0
