@@ -3,7 +3,7 @@ title: 'The ROM plays the opening of Amazing Grace'
 type: 'feature'
 ticket: '2'
 created: '2026-10-04'
-status: 'built'
+status: done
 baseline_revision: '8774397853cc6fe2df8fdff90e68ce27977fcac2'
 route: 'oneshot'
 route_source: 'auto'
@@ -47,6 +47,7 @@ Verified by running each case, restoring the source after each edit:
 - Music start-up removed: `FAIL: no sound was produced`.
 - A ROM ignoring A still fails on the button. ROM size 32768 bytes. `make debug` exits 0.
 - Outstanding: the user listening in Emulicious and recognising the tune. This is the story's human step and has not happened yet.
+- 2026-10-04, later: the user replied "approved". The reply does not say in so many words that they listened and recognised the tune; they have been asked.
 
 ## Review Triage Log
 
