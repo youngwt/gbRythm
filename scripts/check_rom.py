@@ -29,8 +29,9 @@ REACT_FRAMES = 60
 # half a second after starting even when it plays no music, so sound that
 # early says nothing about the music.
 SOUND_SETTLE_FRAMES = 60
-# How long to listen in all: ten seconds, enough for a whole phrase of music.
-LISTEN_FRAMES = 600
+# How long to listen in all: eighteen seconds, enough for the song to play
+# through once.
+LISTEN_FRAMES = 1080
 # A note counts once it has lasted this many frames in a row; shorter runs
 # are the clicks between notes. And music must use at least this many
 # different notes: one held note is sound, but it is not a tune.
@@ -144,7 +145,7 @@ def main() -> int:
         after = pyboy.screen.image.convert("RGB")
         after.save(after_path)
 
-        # Keep listening until a whole phrase has had time to play.
+        # Keep listening until the song has had time to play through.
         run(LISTEN_FRAMES - BOOT_FRAMES - REACT_FRAMES)
     finally:
         pyboy.stop(save=False)

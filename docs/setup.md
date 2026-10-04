@@ -104,9 +104,9 @@ This builds the ROM if needed and runs it in PyBoy with no window. The check:
 2. looks for every image in `assets/` on that screen;
 3. taps the A button, runs 60 more frames, and saves the screen to `build/screenshot-after.png`;
 4. compares the two screenshots;
-5. keeps the ROM running to ten seconds in all, listening the whole time, and works out which notes it played.
+5. keeps the ROM running to eighteen seconds in all, long enough for the song to play through once, listening the whole time, and works out which notes it played.
 
-It prints `PASS` and exits 0 when every image was found, the screen changed, and it heard a tune; the message lists the notes, for example `notes heard: D4 G4 B4 G4 B4 A4 G4 E4 D4`. It prints `FAIL` and exits non-zero if the ROM is missing, the screen is blank, an image is not on screen, no sound was produced, the sound never changed note, or pressing A changed nothing.
+It prints `PASS` and exits 0 when every image was found, the screen changed, and it heard a tune; the message lists the notes, for example `notes heard: D4 G4 B4 G4 B4 A4 G4 E4 D4 G4 B4 G4 B4 A4 D5`. The emulator runs much faster than a real Game Boy, so those eighteen seconds take about one. It prints `FAIL` and exits non-zero if the ROM is missing, the screen is blank, an image is not on screen, no sound was produced, the sound never changed note, or pressing A changed nothing.
 
 Each part proves something different. Comparing before and after proves button input reaches the C program: a ROM that ignores the button fails. Looking for the images proves the route from PNG to screen still works: a ROM that stops drawing an image, or draws the wrong one, fails with `FAIL: assets/NAME.png was not found on screen`. The check reads the PNG itself and searches the whole screen for it, so after you edit an image, or move it, there is nothing else to update. It compares the Game Boy's four shades, not exact colours, because the emulator's greys differ slightly from the PNG's.
 
@@ -249,17 +249,20 @@ A program makes a note by writing a pitch and a volume to a channel. Nothing pla
 
 - A **pattern** is 64 rows. Each row is `DN(note, instrument, effect)`. A note is a name such as `G_5`, or `___` to leave the channel as it is, so a note keeps sounding until another replaces it. The driver steps through the rows one at a time.
 - Each channel plays its own pattern, and the four are stepped through together. Here channel 1 plays `melody` and the other three play `silence`, a pattern of empty rows.
-- The **order** lists which pattern each channel plays at each step of the song. This song has one step, so it loops after 64 rows.
+- The **order** lists which pattern each channel plays at each step of the song. This song has two steps, `melody_1` then `melody_2`, and then starts again.
+- An **effect** on a row changes how the song plays. The only one used here is `D01`, pattern break, on the last row the second pattern needs: a pattern is always 64 rows, and this skips the ones left over.
 - An **instrument** says how a note sounds: its starting volume, how it fades, and its wave shape. Instrument 1 starts at full volume and fades slowly. A row cannot say "stop", so instrument 2, which has no volume, is used as a rest.
 - The **tempo** is how many frames each row lasts. At 10, a row is a sixth of a second.
 
-**Reading the melody.** "Amazing Grace" has three beats to the bar. In this file one beat is four rows, so a half note is eight rows and an eighth note is two. The phrase "Amazing grace, how sweet the sound" is D G B G B A G E D and takes 48 rows; a rest fills the other 16 before it repeats.
+**Reading the melody.** "Amazing Grace" has three beats to the bar. In this file one beat is four rows, so a half note is eight rows and an eighth note is two. The song is the first half of the verse. "Amazing grace, how sweet the sound" is D G B G B A G E D, and "that saved a wretch like me" is D G B G B A and then the D an octave higher. The first pattern holds everything up to "a" and is exactly full; the second holds "wretch like me" and a one-beat rest, then breaks back to the start.
+
+Two neighbouring notes in the tune are the same: "sound" and "that" are both D. On the Game Boy you hear the second one start, because each note begins at full volume and fades. The headless check reports them as one D, because it only sees the pitch.
 
 One trap: the driver names octaves one higher than usual. Its `D_5` sounds as the D just above middle C, which most music, and the headless check, calls D4.
 
 **Changing the tune.** Edit a note name in `src/song.c` and run `make check`. The check prints the notes it heard, so the change shows up there without anyone listening: changing `E_5` to `Fs5` turns `... G4 E4 D4` into `... G4 F#4 D4`. To change the speed, change the tempo number at the bottom of the file. To hear it, run `make run`.
 
-**What is not here yet.** One channel, one phrase, no drums and no sound effects. Having the game react in time with the music is for the game itself.
+**What is not here yet.** One channel, half a verse, no drums and no sound effects. Having the game react in time with the music is for the game itself.
 
 ## Everyday commands
 
@@ -280,7 +283,7 @@ Once the tools are installed, these are all you need. Run them from the reposito
 | `src/` | C source for the ROM | yes |
 | `assets/` | PNG images shown by the ROM | yes |
 | `Makefile` | Build and check commands | yes |
-| `src/song.c` | The song, the opening of "Amazing Grace", as a table of notes | yes |
+| `src/song.c` | The song, the first half of a verse of "Amazing Grace", as a table of notes | yes |
 | `scripts/check_rom.py` | The headless check | yes |
 | `scripts/convert-images.sh` | Converts the images to C and hands out their tile numbers | yes |
 | `scripts/java-host.sh` | Starts Java on the host so it can open a window | yes |

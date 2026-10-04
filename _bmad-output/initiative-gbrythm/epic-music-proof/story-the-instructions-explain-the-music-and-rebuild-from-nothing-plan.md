@@ -3,7 +3,7 @@ title: 'The instructions explain the music and rebuild from nothing'
 type: 'chore'
 ticket: '3'
 created: '2026-10-04'
-status: 'built'
+status: done
 baseline_revision: '335aee16f5eeb761a5ee7da5db203c39dd6eb8a8'
 route: 'oneshot'
 route_source: 'auto'
@@ -50,6 +50,13 @@ The rebuild:
 - No command needed fixing.
 - The user's `tools/emulicious/Emulicious.ini` was copied out before the delete and put back.
 - Not re-proven: `make run`, F5, and the VS Code extension's install from nothing (it was already installed).
+
+After the build, the same day:
+
+- The user listened in Emulicious and said "it sounded great". This is the human step story 2.2 was waiting on, and the epic's third Done when.
+- The user then asked for the song to be "a little longer". `src/song.c` now holds the first half of the verse, adding "that saved a wretch like me": two patterns, with a pattern-break effect ending the second early. The check listens for 1080 frames (18 emulated seconds, about one real second) so it hears the song once through, and reports `D4 G4 B4 G4 B4 A4 G4 E4 D4 G4 B4 G4 B4 A4 D5`. `docs/setup.md` was updated to match. The ROM is still 32768 bytes.
+- This goes past the spec's wording, "the opening phrase", and its non-goal about the full length. It is still not the full song. The spec has not been updated.
+- Checked after the change: one held note still fails; the measured note lengths match the rows; the loop restarts where the pattern break says it should.
 
 ## Review Triage Log
 
