@@ -6,7 +6,7 @@ parent: none
 covers: [CAP-2, CAP-6]
 after: []
 assignee: ""
-refined: false
+refined: true
 hitl: false
 risk: low
 ---
@@ -52,5 +52,5 @@ The headless check confirms that the graphic converted from the PNG is on the sc
 ## Notes
 
 - Decision: raised as separate work, not a condition of accepting the dev-environment epic (user, 2026-10-04).
-- Assumption: the check works out what the image should look like from the PNG itself, which is what criterion 4 requires. The alternative is a stored reference screenshot that is regenerated on purpose when the image changes; simpler, but an edit to the PNG then needs a second step.
-- Assumption: the check knows where on screen the image is placed. If the position should not be duplicated between the ROM and the check, say so and the ticket changes.
+- Decision (user approved as drafted, 2026-10-04): the check works out what the image should look like from the PNG itself, which is what criterion 4 requires. The alternative is a stored reference screenshot that is regenerated on purpose when the image changes; simpler, but an edit to the PNG then needs a second step.
+- Decision (user approved as drafted, 2026-10-04): the check knows where on screen the image is placed. If the position should not be duplicated between the ROM and the check, say so and the ticket changes.

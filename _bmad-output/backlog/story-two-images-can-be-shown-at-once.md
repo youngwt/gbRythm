@@ -6,7 +6,7 @@ parent: none
 covers: [CAP-6]
 after: []
 assignee: ""
-refined: false
+refined: true
 hitl: false
 risk: low
 ---
@@ -56,6 +56,6 @@ The build can convert more than one PNG and the ROM can show them together witho
 
 ## Notes
 
-- Assumption: this covers background images only. Moving objects (sprites) use a separate tile area and are left to the game's own spec.
-- Assumption: the proof ROM gains a second small image permanently, so criterion 1 stays checked. The alternative is to prove it once and remove the second image.
-- Assumption: this is worth doing before the game is specced. It could instead wait until the game's spec says how images are used, since that may change the right design; if so, this ticket should be parked, not built.
+- Decision (user approved as drafted, 2026-10-04): this covers background images only. Moving objects (sprites) use a separate tile area and are left to the game's own spec.
+- Decision (user approved as drafted, 2026-10-04): the proof ROM gains a second small image permanently, so criterion 1 stays checked. The alternative is to prove it once and remove the second image.
+- Decision (user approved as drafted, 2026-10-04): this is worth doing before the game is specced. It could instead wait until the game's spec says how images are used, since that may change the right design; if so, this ticket should be parked, not built.
