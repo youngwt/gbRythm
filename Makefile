@@ -1,35 +1,41 @@
-# Builds the Game Boy ROM and runs the headless check.
+# Builds the Game Boy ROM, checks it, and opens it in an emulator.
 # Tools live in tools/ and are found by explicit path; see docs/setup.md.
+#
+#   make         build the ROM
+#   make check   build, then run the ROM with no window and check it
+#   make debug   build a second ROM with debug symbols, for the debugger
+#   make run     build, then open the ROM in Emulicious
+#   make clean   delete everything the build made
 
-GBDK_HOME ?= tools/gbdk
-LCC       := $(GBDK_HOME)/bin/lcc
-PNG2ASSET := $(GBDK_HOME)/bin/png2asset
-PYTHON    := tools/venv/bin/python
+GBDK_HOME  ?= tools/gbdk
+LCC        := $(GBDK_HOME)/bin/lcc
+PNG2ASSET  := $(GBDK_HOME)/bin/png2asset
+PYTHON     := tools/venv/bin/python
+EMULICIOUS := tools/emulicious/Emulicious.jar
 # Java is started through a wrapper so that it opens its window on the host
 # when make runs inside the VS Code Flatpak; see docs/setup.md.
 JAVA       := scripts/java-host.sh
-EMULICIOUS := tools/emulicious/Emulicious.jar
 
 # Extra compiler flags; empty for the normal build, set by the debug target.
-LCCFLAGS  ?=
+LCCFLAGS   ?=
 
-BUILD_DIR := build
-ROM       := $(BUILD_DIR)/gbrythm.gb
-SOURCES   := $(wildcard src/*.c)
-HEADERS   := $(wildcard src/*.h)
+BUILD_DIR  := build
+ROM        := $(BUILD_DIR)/gbrythm.gb
+SOURCES    := $(wildcard src/*.c)
+HEADERS    := $(wildcard src/*.h)
 
 # Each PNG in assets/ is converted to a .c and .h pair in build/.
-ASSETS      := $(wildcard assets/*.png)
-ASSET_SRCS  := $(patsubst assets/%.png,$(BUILD_DIR)/%.c,$(ASSETS))
+ASSETS     := $(wildcard assets/*.png)
+ASSET_SRCS := $(patsubst assets/%.png,$(BUILD_DIR)/%.c,$(ASSETS))
 
-OBJECTS   := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES)) \
-             $(ASSET_SRCS:.c=.o)
+OBJECTS    := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES)) \
+              $(ASSET_SRCS:.c=.o)
 
 # Remove a half-written target when its recipe fails, so a failed build
 # never leaves a ROM that looks up to date.
 .DELETE_ON_ERROR:
 
-.PHONY: all debug run check clean require-gbdk require-python require-emulicious
+.PHONY: all check debug run clean require-gbdk require-python require-emulicious
 
 all: $(ROM)
 
@@ -89,5 +95,6 @@ require-gbdk:
 require-python:
 	@test -x $(PYTHON) || { echo "PyBoy environment not found at $(PYTHON). Follow docs/setup.md."; exit 1; }
 
+# The wrapper script reports a missing Java itself.
 require-emulicious:
-	@test -f $(EMULICIOUS) -a -x tools/java/bin/java || { echo "Emulicious or Java not found in tools/. Follow docs/setup.md."; exit 1; }
+	@test -f $(EMULICIOUS) || { echo "Emulicious not found at $(EMULICIOUS). Follow docs/setup.md."; exit 1; }

@@ -7,9 +7,8 @@
 *.o
 *.lst
 build/
-obj/
 
-# Downloaded tools (GBDK, Python environment); see docs/setup.md
+# Downloaded tools (GBDK, Python environment, Java, Emulicious); see docs/setup.md
 tools/
 
 # Personal Claude Code settings

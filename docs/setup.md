@@ -164,10 +164,10 @@ code --install-extension emulicious.emulicious-debugger
 
 Then:
 
-1. Open `src/main.c` and click to the left of a line number to set a breakpoint, shown as a red dot. Line 27, `a_was_pressed = 1;`, is a good first one: it only runs when A is pressed.
+1. Open `src/main.c` and click to the left of a line number to set a breakpoint, shown as a red dot. The line `a_was_pressed = 1;` is a good first one: it only runs when A is pressed.
 2. Press F5.
 3. An Emulicious window opens with the ROM running. Press A in it.
-4. VS Code stops on line 27. The Variables panel and hovering over `keys` or `a_was_pressed` show their values. F10 steps to the next line and F5 continues.
+4. VS Code stops on that line. The Variables panel and hovering over `keys` or `a_was_pressed` show their values. F10 steps to the next line and F5 continues.
 
 What F5 does is set out in `.vscode/launch.json`, with the build step in `.vscode/tasks.json`:
 
@@ -175,16 +175,6 @@ What F5 does is set out in `.vscode/launch.json`, with the build step in `.vscod
 - It then starts Emulicious through `scripts/java-host.sh`, for the reason given in step 7, and connects to it on port 58870.
 
 The extension tries to connect every tenth of a second and by default gives up after 25 tries, which a slow start of Java can exceed. `.vscode/settings.json` raises that to 100, about ten seconds. If F5 still reports that it could not connect, press F5 again.
-
-## What was found
-
-Two questions were open when this environment was planned. These are the answers, found on 2026-10-04.
-
-**Which Java does Emulicious need, and can it open a window from the VS Code Flatpak?** Emulicious's `ReadMe.txt` says "Java 6 or newer", so any current Java works; Temurin 21, a long-term-support release, was chosen. Java unpacked inside the repository runs in the sandbox, but cannot open a window there: started from the Flatpak terminal, Emulicious fails with `HeadlessException: No X11 DISPLAY variable was set`, and setting `DISPLAY=:0` by hand fails with "Authorization required". Started on the host with `flatpak-spawn --host`, the same Java and the same files run without that error. So Java must launch on the host, which is what `scripts/java-host.sh` does. One trap: in the sandbox Emulicious still opens its debugger port even though it has no window, so a successful connection does not prove the window appeared.
-
-**Does the Emulicious VS Code debugger extension, last released 2023-11, still work?** Version 1.3.0 installs without complaint on VS Code 1.139.1 from the marketplace. The extension is small: it starts Emulicious and hands VS Code the port, and Emulicious itself does the debugging, so the extension's age matters less than Emulicious's, which was last released 2026-03-27 and lists remote-debugger fixes in its `WhatsNew.txt`. The check that matters needs a person: on 2026-10-04 the user set a breakpoint in `src/main.c`, pressed F5, and reported that it worked. So yes, it still works.
-
-A third question, whether PyBoy's picture matches Emulicious's closely enough to trust the headless check, has not been answered yet; it is recorded as deferred work.
 
 ## Adding or changing an image
 
@@ -202,6 +192,18 @@ If an image breaks the first two rules, `make` stops and prints the converter's 
 
 One limit to know about: the build gives every image tile numbers starting at 128, to stay clear of the text font in the lower numbers. That is fine for one image. Two images shown at once would overwrite each other's tiles, so a second image needs its own starting number.
 
+## Everyday commands
+
+Once the tools are installed, these are all you need. Run them from the repository root.
+
+| Command | What it does |
+|---|---|
+| `make` | Builds the ROM, `build/gbrythm.gb` |
+| `make check` | Builds, then runs the ROM with no window and reports `PASS` or `FAIL` |
+| `make run` | Builds, then opens the ROM in Emulicious to play |
+| `make debug` | Builds the debug ROM in `build/debug/`; F5 in VS Code does this for you |
+| `make clean` | Deletes `build/` |
+
 ## Where things are
 
 | Path | What it is | In git? |
@@ -218,3 +220,13 @@ One limit to know about: the build gives every image tile numbers starting at 12
 | `tools/emulicious/` | Emulicious | no |
 | `build/` | The ROM, screenshots, C generated from images, and compiler output | no |
 | `build/debug/` | The debug ROM and its `.cdb` debug symbols | no |
+
+## What was found
+
+Two questions were open when this environment was planned. These are the answers, found on 2026-10-04.
+
+**Which Java does Emulicious need, and can it open a window from the VS Code Flatpak?** Emulicious's `ReadMe.txt` says "Java 6 or newer", so any current Java works; Temurin 21, a long-term-support release, was chosen. Java unpacked inside the repository runs in the sandbox, but cannot open a window there: started from the Flatpak terminal, Emulicious fails with `HeadlessException: No X11 DISPLAY variable was set`, and setting `DISPLAY=:0` by hand fails with "Authorization required". Started on the host with `flatpak-spawn --host`, the same Java and the same files run without that error. So Java must launch on the host, which is what `scripts/java-host.sh` does. One trap: in the sandbox Emulicious still opens its debugger port even though it has no window, so a successful connection does not prove the window appeared.
+
+**Does the Emulicious VS Code debugger extension, last released 2023-11, still work?** Version 1.3.0 installs without complaint on VS Code 1.139.1 from the marketplace. The extension is small: it starts Emulicious and hands VS Code the port, and Emulicious itself does the debugging, so the extension's age matters less than Emulicious's, which was last released 2026-03-27 and lists remote-debugger fixes in its `WhatsNew.txt`. The check that matters needs a person: on 2026-10-04 the user set a breakpoint in `src/main.c`, pressed F5, and reported that it worked. So yes, it still works.
+
+A third question, whether PyBoy's picture matches Emulicious's closely enough to trust the headless check, has not been answered yet; it is recorded as deferred work.
