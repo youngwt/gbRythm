@@ -1,0 +1,35 @@
+# tickets.toml — the agreed children of epic-music-proof. tickets.py reads it.
+# The order of the tables is the build order. `id` names a child for good and is never reused.
+
+[[entry]]
+id = 1
+type = "story"
+title = "The driver links and the check hears a sound"
+description = "Installs hUGEDriver into the tools folder, links it into the proof ROM under GBDK 4.5.0 with a song of a few notes, makes the headless check detect sound, starts the music section of the instructions, and records whether the packaged library worked."
+verify = "make check passes on the ROM and fails on one built with the music left out, the existing checks still pass, and the instructions state the compatibility answer with its evidence."
+covers = ["CAP-1", "CAP-2", "CAP-4", "CAP-5"]
+after = []
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 2
+type = "story"
+title = "The ROM plays the opening of Amazing Grace"
+description = "Replaces the few-note song from entry 1 with the opening phrase of Amazing Grace, written by hand as a C song file, and extends the headless check to confirm the notes change over time; the user listens once in Emulicious."
+verify = "make check passes and fails when the song is reduced to one held note, and the user, listening in Emulicious, recognises the tune."
+covers = ["CAP-1", "CAP-2", "CAP-3"]
+after = [1]
+hitl = true
+risk = "low"
+
+[[entry]]
+id = 3
+type = "story"
+title = "The instructions explain the music and rebuild from nothing"
+description = "Completes the instructions so a reader new to Game Boy music learns what a music driver is, what the sound channels are and how the song file from entry 2 is laid out, then deletes the tools folder and follows the instructions step by step, fixing every gap."
+verify = "After the rebuild from the instructions alone, make check passes."
+covers = ["CAP-4"]
+after = [2]
+hitl = false
+risk = "low"
