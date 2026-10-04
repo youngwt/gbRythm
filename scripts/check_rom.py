@@ -4,8 +4,8 @@ Usage: check_rom.py ROM OUTPUT_DIR [IMAGE ...]
 
 Saves screenshot-before.png and screenshot-after.png to OUTPUT_DIR: the
 screen before and after pressing A. Exits non-zero when the ROM is missing,
-the screen is one flat colour, an IMAGE does not appear on the screen, or
-pressing A does not change the screen.
+the screen is one flat colour, an IMAGE does not appear on the screen, the
+ROM makes no sound, or pressing A does not change the screen.
 
 Each IMAGE is a PNG the ROM is meant to display. The check looks for it
 anywhere on the screen, so it needs no copy of the image's position and no
@@ -23,6 +23,10 @@ from pyboy import PyBoy
 # two seconds is ample for the ROM to start, and one for it to react.
 BOOT_FRAMES = 120
 REACT_FRAMES = 60
+# Sound in the first second is ignored. The ROM makes a short blip about
+# half a second after starting even when it plays no music, so sound that
+# early says nothing about the music.
+SOUND_SETTLE_FRAMES = 60
 
 
 def shades(image: Image.Image) -> np.ndarray:
@@ -62,10 +66,16 @@ def main() -> int:
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # window="null" runs the emulator with no display at all.
-    pyboy = PyBoy(str(rom), window="null", sound_emulated=False)
+    # window="null" runs the emulator with no display at all. Sound is still
+    # worked out, though nothing is played: after each frame the emulator
+    # holds that frame's sound as a list of numbers, all zero when silent.
+    pyboy = PyBoy(str(rom), window="null", sound_emulated=True)
+    frames_with_sound = 0
     try:
-        pyboy.tick(BOOT_FRAMES)
+        for frame in range(BOOT_FRAMES):
+            pyboy.tick()
+            if frame >= SOUND_SETTLE_FRAMES and np.asarray(pyboy.sound.ndarray).any():
+                frames_with_sound += 1
         before = pyboy.screen.image.convert("RGB")
         before.save(before_path)
 
@@ -96,12 +106,19 @@ def main() -> int:
             print(f"FAIL: {image_path} was not found on screen; see {before_path}")
             return 1
 
+    if frames_with_sound == 0:
+        print(f"FAIL: no sound was produced between frames {SOUND_SETTLE_FRAMES} and {BOOT_FRAMES}")
+        return 1
+
     if before.tobytes() == after.tobytes():
         print(f"FAIL: pressing A did not change the screen; see {after_path}")
         return 1
 
-    shown = f"{len(image_paths)} image(s) shown and " if image_paths else ""
-    print(f"PASS: {shown}screen changed after pressing A; see {before_path} and {after_path}")
+    shown = f"{len(image_paths)} image(s) shown, " if image_paths else ""
+    print(
+        f"PASS: {shown}sound heard in {frames_with_sound} of {BOOT_FRAMES - SOUND_SETTLE_FRAMES} frames, "
+        f"and screen changed after pressing A; see {before_path} and {after_path}"
+    )
     return 0
 
 

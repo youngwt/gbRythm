@@ -4,6 +4,7 @@
 
 #include "arrow.h"
 #include "note.h"
+#include "song.h"
 
 // Where each image goes on the background, in tiles from the top left.
 #define ARROW_X 8
@@ -30,6 +31,19 @@ void main(void)
     // numbers after the arrow's, so both can be on screen together.
     set_bkg_data(note_TILE_ORIGIN, note_TILE_COUNT, note_tiles);
     set_bkg_tiles(NOTE_X, NOTE_Y, note_WIDTH >> 3, note_HEIGHT >> 3, note_map);
+
+    // Start the music. The three registers switch the sound hardware on,
+    // send every channel to both speakers, and set the volume to full. The
+    // driver is then given the song and asked to run once per frame, on the
+    // vertical blank interrupt; it plays the next step each time. __critical
+    // holds interrupts off while that is set up.
+    NR52_REG = 0x80;
+    NR51_REG = 0xFF;
+    NR50_REG = 0x77;
+    __critical {
+        hUGE_init(&proof_song);
+        add_VBL(hUGE_dosound);
+    }
 
     while (1) {
         // Read the buttons once per frame.

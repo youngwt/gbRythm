@@ -12,6 +12,9 @@ LCC        := $(GBDK_HOME)/bin/lcc
 PNG2ASSET  := $(GBDK_HOME)/bin/png2asset
 PYTHON     := tools/venv/bin/python
 EMULICIOUS := tools/emulicious/Emulicious.jar
+# The music driver: a header to compile against and a library to link in.
+HUGE_HOME  := tools/hugedriver
+HUGE_LIB   := $(HUGE_HOME)/gbdk/hUGEDriver.lib
 # Java is started through a wrapper so that it opens its window on the host
 # when make runs inside the VS Code Flatpak; see docs/setup.md.
 JAVA       := scripts/java-host.sh
@@ -35,18 +38,20 @@ OBJECTS    := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES)) \
 # never leaves a ROM that looks up to date.
 .DELETE_ON_ERROR:
 
-.PHONY: all check debug run clean require-gbdk require-python require-emulicious
+.PHONY: all check debug run clean require-gbdk require-python require-emulicious require-hugedriver
 
 all: $(ROM)
 
-$(ROM): $(OBJECTS) | require-gbdk
-	$(LCC) $(LCCFLAGS) -o $@ $(OBJECTS)
+# -Wl-l passes the music driver's library to the linker.
+$(ROM): $(OBJECTS) | require-gbdk require-hugedriver
+	$(LCC) $(LCCFLAGS) -Wl-l$(HUGE_LIB) -o $@ $(OBJECTS)
 
 # Every object depends on every header and every converted image: coarse,
 # but a changed header or PNG can never leave a stale object behind.
 # -I$(BUILD_DIR) lets source files include the generated image headers.
-$(BUILD_DIR)/%.o: src/%.c $(HEADERS) $(ASSET_SRCS) | $(BUILD_DIR) require-gbdk
-	$(LCC) $(LCCFLAGS) -I$(BUILD_DIR) -c -o $@ $<
+# -I$(HUGE_HOME)/include finds the music driver's header.
+$(BUILD_DIR)/%.o: src/%.c $(HEADERS) $(ASSET_SRCS) | $(BUILD_DIR) require-gbdk require-hugedriver
+	$(LCC) $(LCCFLAGS) -I$(BUILD_DIR) -I$(HUGE_HOME)/include -c -o $@ $<
 
 $(BUILD_DIR)/%.o: $(BUILD_DIR)/%.c | require-gbdk
 	$(LCC) $(LCCFLAGS) -c -o $@ $<
@@ -88,6 +93,9 @@ clean:
 
 require-gbdk:
 	@test -x $(LCC) || { echo "GBDK not found at $(LCC). Follow docs/setup.md."; exit 1; }
+
+require-hugedriver:
+	@test -f $(HUGE_LIB) || { echo "hUGEDriver not found at $(HUGE_LIB). Follow docs/setup.md."; exit 1; }
 
 require-python:
 	@test -x $(PYTHON) || { echo "PyBoy environment not found at $(PYTHON). Follow docs/setup.md."; exit 1; }

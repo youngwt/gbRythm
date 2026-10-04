@@ -61,17 +61,38 @@ uv pip install --python tools/venv/bin/python pyboy==2.7.0 pillow==12.3.0 numpy=
 
 `uv` may warn that hardlinking is not supported across filesystems. That is harmless: it copies the files instead.
 
-## 3. Build the ROM
+## 3. Install hUGEDriver (the music driver)
+
+The Game Boy has no way to play a music file. A program makes sound by writing numbers to the sound hardware many times a second, and a music driver is the code that does this for you: you give it a song as a table of notes, call it once per frame, and it plays the next step. hUGEDriver is the one GBDK's documentation describes as smaller and more versatile than the alternative. It comes as a ready-built library that the build links into the ROM, plus a header file the C program includes. The version is pinned to 6.1.3.
+
+Download it and check it is the file that was published; the check must print `OK`:
+
+```sh
+curl -sSL -o tools/hugedriver.zip https://github.com/SuperDisk/hUGEDriver/releases/download/v6.1.3/hUGEDriver-6.1.3.zip
+echo "587f108681d49104349d8f9ea4db4be5fbeca70b09d66a3037db767b2e1c2c82  tools/hugedriver.zip" | sha256sum -c -
+```
+
+Unpack it into its own folder and remove the archive. The archive has no top folder of its own, so `-d` names one:
+
+```sh
+mkdir -p tools/hugedriver
+unzip -q tools/hugedriver.zip -d tools/hugedriver
+rm tools/hugedriver.zip
+```
+
+The build uses two files from it: `tools/hugedriver/gbdk/hUGEDriver.lib`, the library, and `tools/hugedriver/include/hUGEDriver.h`, the header. The `rgbds/` folder is the same driver for a different toolchain and is not used.
+
+## 4. Build the ROM
 
 ```sh
 make
 ```
 
-This converts each image in `assets/` to C (see "Adding or changing an image" below), compiles `src/*.c`, and writes the ROM to `build/gbrythm.gb`. The `Makefile` calls the compiler by its path in `tools/gbdk`, so it does not matter what is on your PATH. If a compile fails, `make` stops with the compiler's message, which names the file and line.
+This converts each image in `assets/` to C (see "Adding or changing an image" below), compiles `src/*.c`, links in the music driver, and writes the ROM to `build/gbrythm.gb`. The `Makefile` calls the compiler by its path in `tools/gbdk`, so it does not matter what is on your PATH. If a compile fails, `make` stops with the compiler's message, which names the file and line.
 
 `make clean` deletes `build/`.
 
-## 4. Run the headless check
+## 5. Run the headless check
 
 ```sh
 make check
@@ -80,21 +101,24 @@ make check
 This builds the ROM if needed and runs it in PyBoy with no window. The check:
 
 1. runs the ROM for 120 frames (about two seconds of Game Boy time) and saves the screen to `build/screenshot-before.png`;
-2. looks for every image in `assets/` on that screen;
-3. taps the A button, runs 60 more frames, and saves the screen to `build/screenshot-after.png`;
-4. compares the two screenshots.
+2. listens while those frames run, and counts the frames in which the ROM made sound;
+3. looks for every image in `assets/` on that screen;
+4. taps the A button, runs 60 more frames, and saves the screen to `build/screenshot-after.png`;
+5. compares the two screenshots.
 
-It prints `PASS` and exits 0 when every image was found and the screen changed. It prints `FAIL` and exits non-zero if the ROM is missing, the screen is blank, an image is not on screen, or pressing A changed nothing.
+It prints `PASS` and exits 0 when sound was heard, every image was found, and the screen changed. It prints `FAIL` and exits non-zero if the ROM is missing, the screen is blank, an image is not on screen, no sound was produced, or pressing A changed nothing.
 
 Each part proves something different. Comparing before and after proves button input reaches the C program: a ROM that ignores the button fails. Looking for the images proves the route from PNG to screen still works: a ROM that stops drawing an image, or draws the wrong one, fails with `FAIL: assets/NAME.png was not found on screen`. The check reads the PNG itself and searches the whole screen for it, so after you edit an image, or move it, there is nothing else to update. It compares the Game Boy's four shades, not exact colours, because the emulator's greys differ slightly from the PNG's.
+
+Listening proves the music is playing: a ROM that never starts the music driver, or leaves the sound hardware switched off, fails with `FAIL: no sound was produced`. Nothing is played out loud. The emulator works out the sound for each frame as a list of numbers, all zero when silent, and the check looks for frames that are not all zero. It ignores the first second, because the ROM makes a short blip about half a second after starting even with no music. For now the check only asks whether there is sound, not what the notes are.
 
 PyBoy prints a warning about "SDL2 binaries from pysdl2-dll". It is informational and can be ignored.
 
 Open the two screenshots to see what the ROM drew. Before shows `GBRYTHM` and `PRESS A` with a down arrow and a music note below them, drawn from `assets/arrow.png` and `assets/note.png`; after adds a third line, `A PRESSED`.
 
-## 5. Install Java (to run Emulicious)
+## 6. Install Java (to run Emulicious)
 
-Steps 5 to 8 set up an emulator with a window, so you can play the ROM and step through its C source. Building and `make check` do not need them.
+Steps 6 to 9 set up an emulator with a window, so you can play the ROM and step through its C source. Building and `make check` do not need them.
 
 Emulicious, the emulator installed in the next step, is a Java program, and SteamOS has no Java. This step unpacks a Java runtime into `tools/`. It is Eclipse Temurin 21, a free build of Java, in its "JRE" form, which runs Java programs and leaves out the developer tools.
 
@@ -119,7 +143,7 @@ Confirm it runs; it prints a version starting `21.0.12`:
 tools/java/bin/java -version
 ```
 
-## 6. Install Emulicious (the emulator with a debugger)
+## 7. Install Emulicious (the emulator with a debugger)
 
 Emulicious is a Game Boy emulator with a window, and it has a debugger that VS Code can drive. PyBoy stays the emulator for automated checks; Emulicious is the one you look at.
 
@@ -145,7 +169,7 @@ unzip -q tools/emulicious.zip -d tools/emulicious
 rm tools/emulicious.zip
 ```
 
-## 7. Play the ROM
+## 8. Play the ROM
 
 ```sh
 make run
@@ -155,7 +179,7 @@ This builds the ROM if needed and opens it in an Emulicious window. Emulicious's
 
 `make run` starts Java through `scripts/java-host.sh` instead of directly. The reason is the VS Code Flatpak: programs started from its terminal run in a sandbox that has no X11 display, and Java needs one to open a window. The script asks Flatpak to start Java on the host, outside the sandbox, with `flatpak-spawn --host`. Outside a Flatpak it just runs Java.
 
-## 8. Step through the C source in VS Code
+## 9. Step through the C source in VS Code
 
 This lets you stop the running ROM on a line of C and look at the variables.
 
@@ -175,7 +199,7 @@ Then:
 What F5 does is set out in `.vscode/launch.json`, with the build step in `.vscode/tasks.json`:
 
 - It first runs `make debug`, which builds a second ROM in `build/debug/`. That build adds two compiler flags. `-debug` writes `gbrythm.cdb`, the file that tells the debugger which machine code came from which line of C. `-Wf--max-allocs-per-node0` turns off an optimisation that reorders code, so stepping follows the source line by line. The second flag makes the code bigger and slower, so the debug ROM is kept separate: the ROM that `make check` tests is always the normal one.
-- It then starts Emulicious through `scripts/java-host.sh`, for the reason given in step 7, and connects to it on port 58870.
+- It then starts Emulicious through `scripts/java-host.sh`, for the reason given in step 8, and connects to it on port 58870.
 
 The extension tries to connect every tenth of a second and by default gives up after 25 tries, which a slow start of Java can exceed. `.vscode/settings.json` raises that to 100, about ten seconds. If F5 still reports that it could not connect, press F5 again.
 
@@ -221,12 +245,14 @@ Once the tools are installed, these are all you need. Run them from the reposito
 | `src/` | C source for the ROM | yes |
 | `assets/` | PNG images shown by the ROM | yes |
 | `Makefile` | Build and check commands | yes |
+| `src/song.c` | The song, as a table of notes | yes |
 | `scripts/check_rom.py` | The headless check | yes |
 | `scripts/convert-images.sh` | Converts the images to C and hands out their tile numbers | yes |
 | `scripts/java-host.sh` | Starts Java on the host so it can open a window | yes |
 | `.vscode/` | VS Code debug configuration | yes |
 | `tools/gbdk/` | GBDK-2020 4.5.0 | no |
 | `tools/venv/` | Python environment with PyBoy | no |
+| `tools/hugedriver/` | hUGEDriver 6.1.3, the music driver | no |
 | `tools/java/` | Java runtime, Temurin 21 | no |
 | `tools/emulicious/` | Emulicious | no |
 | `build/` | The ROM, screenshots, C generated from images, and compiler output | no |
@@ -234,10 +260,14 @@ Once the tools are installed, these are all you need. Run them from the reposito
 
 ## What was found
 
-Two questions were open when this environment was planned. These are the answers, found on 2026-10-04.
+These questions were open when the work was planned. These are the answers, found on 2026-10-04.
 
 **Which Java does Emulicious need, and can it open a window from the VS Code Flatpak?** Emulicious's `ReadMe.txt` says "Java 6 or newer", so any current Java works; Temurin 21, a long-term-support release, was chosen. Java unpacked inside the repository runs in the sandbox, but cannot open a window there: started from the Flatpak terminal, Emulicious fails with `HeadlessException: No X11 DISPLAY variable was set`, and setting `DISPLAY=:0` by hand fails with "Authorization required". Started on the host with `flatpak-spawn --host`, the same Java and the same files run without that error. So Java must launch on the host, which is what `scripts/java-host.sh` does. One trap: in the sandbox Emulicious still opens its debugger port even though it has no window, so a successful connection does not prove the window appeared.
 
 **Does the Emulicious VS Code debugger extension, last released 2023-11, still work?** Version 1.3.0 installs without complaint on VS Code 1.139.1 from the marketplace. The extension is small: it starts Emulicious and hands VS Code the port, and Emulicious itself does the debugging, so the extension's age matters less than Emulicious's, which was last released 2026-03-27 and lists remote-debugger fixes in its `WhatsNew.txt`. The check that matters needs a person: on 2026-10-04 the user set a breakpoint in `src/main.c`, pressed F5, and reported that it worked. So yes, it still works.
 
-A third question, whether PyBoy's picture matches Emulicious's closely enough to trust the headless check, has not been answered yet; it is recorded as deferred work.
+**Does hUGEDriver's ready-built library work with GBDK 4.5.0?** Yes. The worry was that release 6.1.3 was built in 2024 against GBDK 4.1.1, three versions older than the one used here. Found on 2026-10-04: the driver's own example program and song compile and link against the library with GBDK 4.5.0 with no errors or warnings, and run in PyBoy producing sound in 185 of the first 240 frames. The proof ROM then linked the same library and plays its own song. Nothing had to be rebuilt, so the driver's source and the RGBDS assembler it needs are not installed.
+
+**Can PyBoy hear sound?** Yes. With sound emulation switched on it exposes each frame's sound as numbers, which is what the headless check reads. Whether what it produces matches a real Game Boy has not been compared.
+
+One question is still open: whether PyBoy's picture matches Emulicious's closely enough to trust the headless check. It is a parked ticket in `_bmad-output/backlog/`.
