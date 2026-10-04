@@ -90,7 +90,7 @@ Each part proves something different. Comparing before and after proves button i
 
 PyBoy prints a warning about "SDL2 binaries from pysdl2-dll". It is informational and can be ignored.
 
-Open the two screenshots to see what the ROM drew. Before shows `GBRYTHM` and `PRESS A` with a down arrow below them, drawn from `assets/arrow.png`; after adds a third line, `A PRESSED`.
+Open the two screenshots to see what the ROM drew. Before shows `GBRYTHM` and `PRESS A` with a down arrow and a music note below them, drawn from `assets/arrow.png` and `assets/note.png`; after adds a third line, `A PRESSED`.
 
 ## 5. Install Java (to run Emulicious)
 
@@ -191,9 +191,16 @@ An image must fit what the original Game Boy can show:
 - **At most four shades.** The original Game Boy has four: white, light grey, dark grey and black. Use `#FFFFFF`, `#AAAAAA`, `#555555` and `#000000`.
 - **No larger than the screen**, which is 160×144 pixels.
 
-If an image breaks the first two rules, `make` stops and prints the converter's error. The converter itself exits successfully even when it reports an error, so the `Makefile` checks its output; its full output is kept in `build/NAME.c.log`.
+If an image breaks the first two rules, `make` stops and prints an error. The converter itself exits successfully even when it reports an error, and it accepts a fifth shade without complaint when that shade sits in a tile of its own, so `scripts/convert-images.sh` checks its output for both. The converter's full output is kept in `build/NAME.c.log`.
 
-One limit to know about: the build gives every image tile numbers starting at 128, to stay clear of the text font in the lower numbers. That is fine for one image. Two images shown at once would overwrite each other's tiles, so a second image needs its own starting number.
+**Several images.** Background tiles are numbered 0 to 255. The text font uses the lower half, so images share numbers 128 to 255: 128 tiles between them. The build hands these out for you. `scripts/convert-images.sh` converts the images in alphabetical order and starts each one where the one before ended, so any number of images can be on screen together without overwriting each other, and you never type a tile number. The arrow has 11 tiles and gets 128 to 138; the note has 4 and gets 139 to 142. The C program reads each image's start from `NAME_TILE_ORIGIN`.
+
+Because the numbers depend on the images before, changing any PNG reconverts all of them. Two things stop the build with a message:
+
+- **Tile space ran out.** The images together need more than 128 tiles. The message names the image that did not fit. Identical tiles within one image are stored once, so plain areas cost little; a large detailed picture costs a lot.
+- **An image shares a name with a C source file**, such as `assets/main.png` beside `src/main.c`. Both would compile to the same file in `build/`, so rename the image.
+
+Moving objects, called sprites, use a separate set of tiles and are not covered here.
 
 ## Everyday commands
 
@@ -215,6 +222,7 @@ Once the tools are installed, these are all you need. Run them from the reposito
 | `assets/` | PNG images shown by the ROM | yes |
 | `Makefile` | Build and check commands | yes |
 | `scripts/check_rom.py` | The headless check | yes |
+| `scripts/convert-images.sh` | Converts the images to C and hands out their tile numbers | yes |
 | `scripts/java-host.sh` | Starts Java on the host so it can open a window | yes |
 | `.vscode/` | VS Code debug configuration | yes |
 | `tools/gbdk/` | GBDK-2020 4.5.0 | no |

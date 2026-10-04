@@ -51,18 +51,14 @@ $(BUILD_DIR)/%.o: src/%.c $(HEADERS) $(ASSET_SRCS) | $(BUILD_DIR) require-gbdk
 $(BUILD_DIR)/%.o: $(BUILD_DIR)/%.c | require-gbdk
 	$(LCC) $(LCCFLAGS) -c -o $@ $<
 
-# Convert a PNG to C as a background image: a set of 8x8 tiles plus a map
-# saying which tile goes where. This writes both the .c and its .h.
-# -tile_origin 128 numbers the tiles from 128 so they do not overwrite the
-# text font, which occupies the lower tile numbers.
-# -noflip keeps mirrored tiles separate; the original Game Boy cannot flip
-# background tiles.
-# png2asset exits 0 even when it reports an error such as too many colours,
-# so its output is kept in a log and the build fails if the log has an error.
-$(BUILD_DIR)/%.c: assets/%.png | $(BUILD_DIR) require-gbdk
-	$(PNG2ASSET) $< -map -tile_origin 128 -noflip -o $@ > $@.log 2>&1; \
-	status=$$?; cat $@.log; \
-	test $$status -eq 0 && ! grep -qi "error" $@.log
+# Convert the PNGs to C as background images. They are converted together,
+# by one run of the script, because each image's tile numbers start where
+# the previous image's end; "&:" tells make that the one recipe writes every
+# file. Changing any PNG reconverts them all. See scripts/convert-images.sh.
+ifneq ($(ASSETS),)
+$(ASSET_SRCS) &: $(ASSETS) scripts/convert-images.sh | $(BUILD_DIR) require-gbdk
+	scripts/convert-images.sh $(PNG2ASSET) $(BUILD_DIR) $(sort $(ASSETS))
+endif
 
 # Keep the generated C files; without this make deletes them as temporary
 # files and reconverts every image on the next build.
