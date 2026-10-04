@@ -1,0 +1,36 @@
+{
+  "generation_hash": "9545a301211ce8102e7f",
+  "inputs": {
+    "jinja2_version": "3.1.6",
+    "project_root": "/home/deck/projects/gbRythm",
+    "renderer_sha256": "a622fd5d9f633690323bdecf6cc9dc28625ef0d7b9d971fcc3cd101ed271fa19",
+    "resolved_values": {
+      "customization.workflow.activation_steps_append": [],
+      "customization.workflow.activation_steps_prepend": [],
+      "customization.workflow.on_complete": "",
+      "customization.workflow.persistent_facts": []
+    },
+    "skill_root": "/home/deck/.agents/skills/bmad-retrospective",
+    "source_sha256": {
+      "references/acceptance-verdict.md": "3d589d204d0040c10e4bbfab3e446fb0e41163598c8edebeeceeb184a9bcd3f1",
+      "references/aggregate-views.md": "985733daf701b0d3508764d428033128a7ea48fadea493e00a59a1b17d88fd34",
+      "references/evidence-gathering.md": "d5933391a74c535b1df782e9c0f84c5b375c82940420bc7953ff88c970202687",
+      "references/retro-document.md": "41d2fc84c1739791816a1908a40fa5393fe3ab3d74890067bc4151130b651e66",
+      "references/team-discussion.md": "dec27941b7a5056b2bdd5d160d9769806aa95e2ed3452234fbf3bf47b0831d7d",
+      "workflow.md": "9743428b9af8021cb978af362346837a48aabb254b5685a2ffaec5a9f26ced6f"
+    }
+  },
+  "outputs": {
+    "references/acceptance-verdict.md": "3d589d204d0040c10e4bbfab3e446fb0e41163598c8edebeeceeb184a9bcd3f1",
+    "references/aggregate-views.md": "692091bba70d2d35cb2a1f7ca479234dfcb66fac24ed99f9ba0539bea98222d5",
+    "references/evidence-gathering.md": "fd6bbe40c7e493d3971f7cdd1414da58e4eb4a26dfff7efa0477ad8a2ea74e72",
+    "references/retro-document.md": "b63a68096a991ac9131ea16ab9fbf651b97234b674106ab2754f72547d3ece64",
+    "references/team-discussion.md": "dec27941b7a5056b2bdd5d160d9769806aa95e2ed3452234fbf3bf47b0831d7d",
+    "workflow.md": "19b93655419adf0ba7d411a8f7c18e4d387d11255f8d13c9ac2e59d0e5d29e9d"
+  },
+  "project_root": "/home/deck/projects/gbRythm",
+  "project_slug": "gbrythm",
+  "root_hash": "c2052b9e588c",
+  "schema_version": 1,
+  "skill": "bmad-retrospective"
+}
