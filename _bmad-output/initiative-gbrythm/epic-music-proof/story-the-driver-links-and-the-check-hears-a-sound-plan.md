@@ -3,7 +3,7 @@ title: 'The driver links and the check hears a sound'
 type: 'feature'
 ticket: '1'
 created: '2026-10-04'
-status: 'built'
+status: done
 baseline_revision: '5a72ba618c3d0e549e64f7631abf6eb34df802e2'
 route: 'full'
 route_source: 'auto'
