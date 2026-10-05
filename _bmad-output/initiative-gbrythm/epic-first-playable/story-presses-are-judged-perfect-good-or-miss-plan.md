@@ -3,14 +3,14 @@ title: 'Presses are judged perfect, good or miss'
 type: 'feature'
 ticket: '3'
 created: '2026-10-05'
-status: 'ready-for-dev'
-baseline_revision: ''
+status: done
+baseline_revision: '2b642561fdbe1332cb3e9c9ea32f4d50448880c0'
 route: 'full'
 route_source: 'auto'
 risk: 'medium'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'quick'
+review_source: 'pinned'
+lenses_ran: ['quick']
 review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/initiative-gbrythm/spec-first-playable/spec-first-playable.md'
@@ -71,11 +71,11 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `assets/` -- images for the words PERFECT, GOOD and MISS and the digits 0 to 9, so the check can find and read them like any other image.
-- [ ] `src/game.c` -- read new presses; judge against the nearest note in the lane; let notes fall on past the marker until the good window closes, then count a miss; draw the latest judgement and the three counts; move the markers up to make room.
-- [ ] `scripts/check_rom.py` -- play each matrix scenario with scripted presses and read the three counts from the screen at a quiet moment in the song; keep every existing check on the no-press run. `Makefile` -- pass the new images.
-- [ ] `docs/setup.md` -- how judging works, the windows and where to change them, the screen layout, and the check's scenarios.
-- [ ] Verify every matrix row, restoring the source after the deliberate break.
+- [x] `assets/` -- images for the words PERFECT, GOOD and MISS and the digits 0 to 9, so the check can find and read them like any other image.
+- [x] `src/game.c` -- read new presses; judge against the nearest note in the lane; let notes fall on past the marker until the good window closes, then count a miss; draw the latest judgement and the three counts; move the markers up to make room.
+- [x] `scripts/check_rom.py` -- play each matrix scenario with scripted presses and read the three counts from the screen at a quiet moment in the song; keep every existing check on the no-press run. `Makefile` -- pass the new images.
+- [x] `docs/setup.md` -- how judging works, the windows and where to change them, the screen layout, and the check's scenarios.
+- [x] Verify every matrix row, restoring the source after the deliberate break.
 
 **Acceptance Criteria:**
 - Given the built ROM, when `make check` runs with no display, then it passes and reports each scenario's counts.
@@ -86,9 +86,44 @@ context:
 
 ## Implementation Notes
 
+Implemented inline, without a subagent, by the user's standing choice. No commit was made: the user commits their own work.
+
+- `src/game.c`: reads new presses each frame, judges each against the nearest note in its lane, removes judged notes, lets unpressed notes run 7 frames past the marker and then counts a miss, and draws the latest word and the three two-digit counts. Markers moved from row 15 to row 13; notes start just above the top edge. The title and the built-in text routines are gone.
+- Windows as approved: perfect 3 frames, good 7, in `src/game.c` and `scripts/check_rom.py`.
+- `assets/`: `word_perfect.png`, `word_good.png`, `word_miss.png` (all 48 pixels wide so one replaces another cleanly) and `digits.png`, drawn with Pillow in a 5 by 7 letter shape with the same grey underline as the markers.
+- `scripts/check_rom.py` takes named arguments now. After the no-press play it plays ten scenarios with scripted presses, taking each note's landing frame and lane from the first play, and reads the counts from the screen by matching digit tiles.
+- Surprise: without the text routines nothing was drawn but sprites. They had been switching the background on. The game now does it itself.
+- Surprise, and the main finding: what the player sees is a frame behind the game. Sprite positions reach the screen one frame later than background changes. The first version judged against the game's own position and the probe showed the windows off-centre: 4 frames early to 2 late for perfect. Presses are now judged before notes move and against a height one step past the marker; the probe then showed perfect from 3 early to 3 late and good to 7 either side, measured against what is on screen.
+- The song has 16 notes, not 15: "sound" and "that" are the same pitch and earlier lists merged them. The check's landings count them separately.
+- ROM use fell to 5,641 bytes with the text routines gone.
+
+Verified by running each matrix row, restoring the source after each deliberate break:
+
+- `make check` with no display: PASS; all ten scenarios scored as the matrix says over the first 16 notes; the no-press play still has every note in lane, steady, and landing in the frame its sound starts.
+- Perfect window widened to 4 in C only: `FAIL: with presses 4 frames late … shows 16 perfect`.
+- Good window narrowed to 6: fails on presses 7 frames late.
+- Press detection changed to "held": fails on every button held down.
+- Stray presses made to count as misses: fails, showing 32 misses.
+- Lanes swapped, and notes made late: fail as in entries 1 and 2.
+- Size 32768 bytes; `make debug` exits 0. The screen after a press was opened and shows the markers, the latest word and the counts.
+- One acceptance criterion is met only to within a frame: after an on-time press the word and count change together, and the note disappears one frame later. This is the sprite lag described above.
+- Not done: `make run` and F5, which need a person at a window. The feel of the windows is entry 6.
+
 ## Plan Change Log
 
+After the build, the same day, at the user's request ("reset the score when the song loops over"):
+
+- The three counts go back to zero and the latest judgement is cleared when the song starts again. The reset is done when the reader wraps to the start of the song, which is the moment the first note of the new time through begins to fall, one second before the music restarts. Resetting when the music itself restarts would wipe an early press on that first note.
+- This goes beyond the frozen intent, which said counts only ever go up; the change is the user's.
+- The check reads the counts just before the first note of the second time through lands and requires all three to be zero. With the reset removed it fails: "the counts should go back to zero when the song starts again, but the screen shows 0 perfect, 0 good, 16 miss".
+- A note from the end of one time through that is still falling when the reader wraps would be counted in the new score. No note in this song is that late. Entry 4 replaces the loop with an ending, which removes the case.
+
 ## Review Triage Log
+
+Quick lens run inline by the implementing session, not by an independent reviewer. Counts: high 1, medium 0, low 1, false 0, maybe-false 0.
+
+- high, patched during implementation: presses were judged a frame late relative to the screen (see the main finding above). Found by probing every press timing from 10 frames early to 10 late, fixed, and now held by the check's edge scenarios.
+- low, accepted: a judged note disappears one frame after its word and count change. Fixing it would mean delaying the background writes by a frame; a sixtieth of a second is not worth the complication. Recorded in `docs/setup.md`.
 
 ## Design Notes
 

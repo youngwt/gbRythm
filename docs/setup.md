@@ -98,25 +98,42 @@ This converts each image in `assets/` to C (see "Adding or changing an image" be
 make check
 ```
 
-This builds the ROM if needed and runs it in PyBoy with no window, for 25 seconds of Game Boy time: long enough for the song to play through and start again. The emulator runs much faster than a real Game Boy, so this takes about two seconds. In every frame the check records what is on the screen and what sound was made. Afterwards it:
+This builds the ROM if needed and plays it in PyBoy with no window. The emulator runs much faster than a real Game Boy, so the whole check takes about three seconds.
 
-1. finds the five lane markers, `assets/lane_*.png`, on the screen;
+**First it plays the song with no presses**, for 25 seconds of Game Boy time: long enough for the song to play through and start again. In every frame it records what is on the screen and what sound was made. Afterwards it:
+
+1. finds the five lane markers, the three count words and the digits on the screen, from the PNGs in `assets/`;
 2. works out which notes were played, and the frame each one started;
 3. follows the falling notes, `assets/falling.png`, down the screen above each marker, frame by frame;
 4. compares the frame each note landed on a marker with the frame its sound started, and the marker it landed on with the one its pitch belongs to.
 
-It prints `PASS` and exits 0 when there is one falling note for every note heard, each landing on the marker for its pitch within two frames of its sound, and every note falls steadily. The message gives the numbers, for example `23 notes fell and 23 were heard, each on the marker for its pitch within 0 frame(s) of its sound`, and lists the notes. It saves the screen, five seconds in, to `build/screenshot-play.png`.
+**Then it plays the song ten more times with scripted button presses**, and each time reads the PERFECT, GOOD and MISS counts off the screen:
+
+| Presses | Every note should be |
+|---|---|
+| none | a miss |
+| on the frame the note lands; 3 frames late; 3 early | perfect |
+| 4 frames late; 7 late; 7 early | good |
+| 8 frames late | a miss, with the press ignored |
+| the wrong lane's button as each note lands, and the right button well after it has gone | a miss, with nothing else counted |
+| every button held down throughout | a miss |
+
+It prints `PASS` and exits 0 when all of that holds. The message gives the numbers and lists the notes heard. It saves the screen, five seconds in, to `build/screenshot-play.png`.
 
 It prints `FAIL` and exits non-zero, saying which, if:
 
-- the ROM is missing, the screen is blank, or a marker is not on screen;
+- the ROM is missing, the screen is blank, or one of the images is not on screen;
 - no sound was produced, or the sound never changed note enough to be a tune (at least three different notes);
 - the number of notes that landed differs from the number heard: a note sounded with nothing falling, or the reverse;
 - a note landed more than two frames, a thirtieth of a second, before or after its sound;
 - a note landed on the wrong marker for its pitch, for example `note 2 (G4) landed on assets/lane_2_up.png, but its pitch G belongs on assets/lane_3_right.png`;
-- a falling note did not move the same distance every frame, which is what would happen if the game ran too slowly to keep up.
+- a falling note did not move the same distance every frame, which is what would happen if the game ran too slowly to keep up;
+- the counts did not go back to zero when the song started again;
+- any way of pressing gave the wrong counts, for example `with presses 4 frames late, the first 16 notes should score 0 perfect, 16 good, 0 miss but the screen shows 16 perfect, 0 good, 0 miss`.
 
-The check knows neither the tune nor where anything is drawn. It finds the markers and the falling notes by looking for their PNGs on the screen, and it gets the notes from the sound. So after you edit the song, an image, or where the lanes are, there is nothing else to update: it compares what you would see with what you would hear. The one thing it is told is which pitch belongs to which marker. That list is in the `Makefile` as `LANE_MARKERS`. It repeats the game's design on purpose, so that a ROM which sends a note down the wrong lane fails.
+The check knows neither the tune nor where anything is drawn. It finds everything by looking for the PNGs on the screen, reads the counts by matching digits, and gets the notes from the sound. So after you edit the song, an image, or the layout, there is nothing else to update. What it is told is the game's design, on purpose, so that a ROM which departs from it fails: which pitch belongs to which button and marker, in the `Makefile` as `CHECK_ARGS`, and the two timing windows, at the top of `scripts/check_rom.py`.
+
+Because the song still repeats for ever, the counts are read at a quiet moment: half-way through the longest gap between notes, when all 16 notes of the first time through have been judged and before the score is reset. The check also confirms the reset: just before the first note of the second time through lands, all three counts must read zero.
 
 **How it hears.** Nothing is played out loud. The emulator works out the sound for each frame as a list of numbers, all zero when silent. A plain Game Boy tone switches between off and on at a steady rate, and how fast it switches is the pitch, so the check measures that rate in each frame and names the nearest musical note. A new note starts when the pitch changes, when sound follows silence, or when the same pitch suddenly gets louder again. The check ignores the first second, because the ROM makes a short blip about half a second after starting even with no music. The note names are the usual ones, where D4 is the D just above middle C.
 
@@ -124,7 +141,7 @@ The check knows neither the tune nor where anything is drawn. It finds the marke
 
 PyBoy prints a warning about "SDL2 binaries from pysdl2-dll". It is informational and can be ignored.
 
-Open the screenshot to see what the ROM drew: the title `GBRYTHM` at the bottom, the five lane markers above it, and notes on their way down.
+Open the screenshot to see what the ROM drew: notes on their way down, the five lane markers, and below them the latest judgement and the three counts.
 
 ## 6. Install Java (to run Emulicious)
 
@@ -228,7 +245,7 @@ An image must fit what the original Game Boy can show:
 
 If an image breaks the first two rules, `make` stops and prints an error. The converter itself exits successfully even when it reports an error, and it accepts a fifth shade without complaint when that shade sits in a tile of its own, so `scripts/convert-images.sh` checks its output for both. The converter's full output is kept in `build/NAME.c.log`.
 
-**Several images.** Background tiles are numbered 0 to 255. The text font uses the lower half, so images share numbers 128 to 255: 128 tiles between them. The build hands these out for you. `scripts/convert-images.sh` converts the images in alphabetical order and starts each one where the one before ended, so any number of images can be on screen together without overwriting each other, and you never type a tile number. Today there are six images of one tile each: the falling note gets 128 and the five lane markers get 129 to 133. The C program reads each image's start from `NAME_TILE_ORIGIN`.
+**Several images.** Background tiles are numbered 0 to 255. The text font uses the lower half, so images share numbers 128 to 255: 128 tiles between them. The build hands these out for you. `scripts/convert-images.sh` converts the images in alphabetical order and starts each one where the one before ended, so any number of images can be on screen together without overwriting each other, and you never type a tile number. Today there are ten images using 30 tiles between them: the digits, the falling note, the five lane markers and the three words. The C program reads each image's start from `NAME_TILE_ORIGIN`.
 
 Because the numbers depend on the images before, changing any PNG reconverts all of them. Two things stop the build with a message:
 
@@ -255,17 +272,45 @@ The same pitch falls in the same lane in every octave, so the high D of "like me
 
 In `src/game.c` the mapping is the table `lane_of_pitch`, with one entry for each of the twelve pitches in an octave, and `lane_x` says how far across the screen each lane is.
 
-**Background and sprites.** The Game Boy draws two kinds of picture. The background is a grid of tiles that stays put: the title and the markers are background. A sprite is a single small picture that can be placed anywhere, pixel by pixel, on top of the background: each falling note is a sprite. Sprites can use the same tiles as background images, so the falling note comes from a PNG in `assets/` like any other image. Wherever the PNG is white, a sprite is see-through.
+**Background and sprites.** The Game Boy draws two kinds of picture. The background is a grid of tiles that stays put: the markers, words and counts are background. A sprite is a single small picture that can be placed anywhere, pixel by pixel, on top of the background: each falling note is a sprite. Sprites can use the same tiles as background images, so the falling note comes from a PNG in `assets/` like any other image. Wherever the PNG is white, a sprite is see-through.
 
 **Where the notes come from.** There is no list of falling notes. The game reads the song itself, the same rows in `src/song.c` that the music driver plays, and drops a note from the top whenever a row starts one. A row that uses the silent instrument is a rest and drops nothing. When the song's second pattern ends early with its pattern-break effect, the reader follows it, just as the driver does.
 
-**How they arrive in time.** A note needs time to fall, so the game cannot wait until it hears the note. Instead the reader gets a head start: it begins reading the song one second before the music begins. A note is dropped when the reader reaches its row, falls for exactly one second, and lands as the music reaches the same row. That one second is `LEAD_FRAMES` in `src/game.c`, 60 frames, and a note falls 2 pixels every frame.
+**How they arrive in time.** A note needs time to fall, so the game cannot wait until it hears the note. Instead the reader gets a head start: it begins reading the song one second before the music begins. A note is dropped when the reader reaches its row, falls for exactly one second, and lands as the music reaches the same row. That one second is `LEAD_FRAMES` in `src/game.c`, 60 frames, and a note falls 2 pixels every frame. It starts just above the top edge of the screen, out of sight.
 
 **One clock.** The Game Boy tells the program each time it finishes drawing a frame, sixty times a second, and the music driver runs on that signal. The game counts the same signal and moves the notes once per count. If the game were ever slow and missed one, it does two steps the next time, so the falling notes cannot slip behind the music.
 
-**Changing it.** Edit the song and the falling notes follow, with nothing else to change; `make check` will report the new count. To make notes fall for longer or faster, change `LEAD_FRAMES` and `FALL_SPEED` together so that one multiplied by the other is still the distance from the top of the screen to the marker, 120 pixels.
+**Changing it.** Edit the song and the falling notes follow, with nothing else to change; `make check` will report the new count. To make notes fall for longer or faster, change `LEAD_FRAMES` and `FALL_SPEED` together so that one multiplied by the other is still the distance a note travels, 120 pixels.
 
-**What is not here yet.** No buttons, no judging, and the song simply repeats.
+
+## How judging works
+
+Press a lane's button as its note reaches the marker. The game grades the press by how close it was:
+
+| Judgement | The press was | In time |
+|---|---|---|
+| PERFECT | within 3 frames of the note landing, early or late | a twentieth of a second either side |
+| GOOD | within 7 frames | about an eighth of a second either side |
+| MISS | not made by 7 frames after landing | |
+
+The latest judgement is shown under the markers, and below it the three running counts.
+
+- **A press counts once**, on the frame the button goes down. Holding a button does nothing more.
+- **A note is judged once.** A judged note disappears. A note nobody presses carries on a little way past its marker, while a late press could still count, and then becomes a miss.
+- **Stray presses are ignored.** A press with no note within the good window in that lane does nothing: not a miss, no penalty. That includes pressing the wrong lane's button.
+- **If two notes in a lane are both within reach**, the press goes to the one nearest its marker.
+- **Nothing ends the song.** Misses are only counted.
+- **The score starts again with the song.** When the song comes round, the three counts go back to zero and the latest judgement is cleared. This happens as the first note of the new time through begins to fall, a second before the music itself restarts.
+
+**Distance is time.** Notes fall at a steady 2 pixels a frame, so the game does not time presses. It measures how far the note is from its marker: 6 pixels is 3 frames, 14 pixels is 7.
+
+**What you see is a frame behind.** The game moves a sprite and the Game Boy shows the move one frame later than it shows changes to the background. So when a note looks as if it is on its marker, the game already has it one step further down, and it judges against that. Without this allowance every press would be judged a frame late. You may notice the same lag the other way: a judged note vanishes one frame after its word and count change.
+
+**Changing the windows.** `PERFECT_FRAMES` and `GOOD_FRAMES` are near the top of `src/game.c`. The same two numbers are at the top of `scripts/check_rom.py`, which tests the edges of each window; change both together, or `make check` will fail and tell you which press was judged differently.
+
+**The words and digits are images**, drawn from PNGs in `assets/` like the markers, not the Game Boy's built-in text. That is what lets `make check` read the counts off the screen. Each count is kept as two separate digits, because dividing by ten to display a number is slow on this hardware. It stops at 99.
+
+**What is not here yet.** The song starts on its own and repeats for ever, so the score you just made is wiped a few seconds after the last note. Start, an ending and a results screen come next.
 
 ## How the music works
 
@@ -320,9 +365,9 @@ Once the tools are installed, these are all you need. Run them from the reposito
 | Path | What it is | In git? |
 |---|---|---|
 | `src/` | C source for the ROM | yes |
-| `assets/` | PNG images shown by the ROM: the five lane markers and the falling note | yes |
+| `assets/` | PNG images shown by the ROM: the lane markers, the falling note, the judgement words and the digits | yes |
 | `Makefile` | Build and check commands | yes |
-| `src/game.c` | The play screen: the lanes, their markers and the falling notes | yes |
+| `src/game.c` | The play screen: the lanes, the falling notes, judging and the counts | yes |
 | `src/song.c` | The song, the first half of a verse of "Amazing Grace", as a table of notes | yes |
 | `scripts/check_rom.py` | The headless check | yes |
 | `scripts/convert-images.sh` | Converts the images to C and hands out their tile numbers | yes |
@@ -348,7 +393,7 @@ These questions were open when the work was planned. These are the answers, foun
 
 **Can PyBoy hear sound?** Yes. With sound emulation switched on it exposes each frame's sound as numbers, which is what the headless check reads. Whether what it produces matches a real Game Boy has not been compared.
 
-**Does the game fit in 32K, and can it keep up at 60 frames a second?** Yes to both, so far. Found on 2026-10-05 with the song's notes falling in one lane: `tools/gbdk/bin/romusage build/gbrythm.gb` reports 6,921 bytes used of 32,768, about a fifth. For speed, the headless check follows every falling note for 1,500 frames and each one moved exactly 2 pixels in every frame; a game that fell behind would show a note standing still and then jumping, and when that was forced on purpose the check caught it. This is measured in the PyBoy emulator, not on a real Game Boy, and with no judging yet. With five lanes the figures are 7,357 bytes and the same steady 2 pixels.
+**Does the game fit in 32K, and can it keep up at 60 frames a second?** Yes to both, so far. Found on 2026-10-05 with the song's notes falling in one lane: `tools/gbdk/bin/romusage build/gbrythm.gb` reports 6,921 bytes used of 32,768, about a fifth. For speed, the headless check follows every falling note for 1,500 frames and each one moved exactly 2 pixels in every frame; a game that fell behind would show a note standing still and then jumping, and when that was forced on purpose the check caught it. This is measured in the PyBoy emulator, not on a real Game Boy, and with no judging yet. With five lanes the figures were 7,357 bytes and the same steady 2 pixels. With judging added, and the built-in text routines no longer used, it is 5,641 bytes; notes still move steadily while judgements and counts are being drawn.
 
 **Do the notes land in time?** Yes. All 23 notes in the check's run landed in the same frame their sound started.
 

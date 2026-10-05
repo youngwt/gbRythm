@@ -72,15 +72,19 @@ endif
 $(BUILD_DIR):
 	mkdir -p $@
 
-# The check is given the falling-note image and, for each pitch, the marker
-# its notes should land on, so it can find them on the screen. This is the
-# lane design from the spec, stated a second time on purpose: the check
-# fails if the ROM does not follow it.
-LANE_MARKERS := D=assets/lane_1_left.png E=assets/lane_2_up.png G=assets/lane_3_right.png \
-                A=assets/lane_4_b.png B=assets/lane_5_a.png
+# The check is given the game's images so it can find them on the screen,
+# and for each lane its pitch, button and marker. That is the lane design
+# from the spec, stated a second time on purpose: the check fails if the ROM
+# does not follow it.
+CHECK_ARGS := --falling assets/falling.png \
+              --lane D=left=assets/lane_1_left.png --lane E=up=assets/lane_2_up.png \
+              --lane G=right=assets/lane_3_right.png --lane A=b=assets/lane_4_b.png \
+              --lane B=a=assets/lane_5_a.png \
+              --perfect assets/word_perfect.png --good assets/word_good.png \
+              --miss assets/word_miss.png --digits assets/digits.png
 
 check: $(ROM) | require-python
-	$(PYTHON) scripts/check_rom.py $(ROM) $(BUILD_DIR) assets/falling.png $(LANE_MARKERS)
+	$(PYTHON) scripts/check_rom.py $(ROM) $(BUILD_DIR) $(CHECK_ARGS)
 
 # Build a second ROM for the debugger in build/debug, leaving the normal ROM
 # alone. -debug writes the .cdb file that maps machine code back to C lines.

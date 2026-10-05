@@ -1,6 +1,7 @@
 // The play screen: notes fall down five lanes and land on a marker as they
 // sound. Each lane belongs to one button, and a note's pitch decides its
-// lane.
+// lane. Pressing a lane's button as its note lands is judged perfect or
+// good by how close the press was; a note nobody presses in time is a miss.
 //
 // The falling notes are not a second copy of the tune. The game reads the
 // song's own rows, the same data the music driver plays, but starts reading
@@ -9,10 +10,9 @@
 // lands just as the driver reaches the same row and plays it.
 
 #include <gb/gb.h>
-#include <gbdk/console.h>
 #include <stdint.h>
-#include <stdio.h>
 
+#include "digits.h"
 #include "falling.h"
 #include "game.h"
 #include "lane_1_left.h"
@@ -21,6 +21,9 @@
 #include "lane_4_b.h"
 #include "lane_5_a.h"
 #include "song.h"
+#include "word_good.h"
+#include "word_miss.h"
+#include "word_perfect.h"
 
 // The five lanes, left to right: the Left, Up and Right buttons, then B,
 // then A. Each has a marker at the bottom showing its button.
@@ -28,8 +31,11 @@
 
 // Where the markers sit, in pixels from the top left of the screen. All are
 // multiples of 8 because a marker is a background tile.
-#define TARGET_Y 120
+#define TARGET_Y 104
 static const uint8_t lane_x[LANES] = {32, 56, 80, 104, 128};
+
+// The button for each lane, in the same order.
+static const uint8_t lane_button[LANES] = {J_LEFT, J_UP, J_RIGHT, J_B, J_A};
 
 // Which lane each of the twelve pitches in an octave falls in, counting
 // from C. The tune uses five: D, E, G, A and B, lowest on the left. The
@@ -52,11 +58,36 @@ static const uint8_t lane_of_pitch[PITCHES_PER_OCTAVE] = {
     4,        // B: the A button
 };
 
+// Sprites are placed by their bottom-right corner, so a sprite at the top
+// left of the screen has x 8 and y 16. A falling note's height is kept in
+// these sprite numbers: 0 is just above the top edge, out of sight.
+#define SPRITE_X_OFFSET 8
+#define SPRITE_Y_OFFSET 16
+#define LANDED_Y (TARGET_Y + SPRITE_Y_OFFSET)
+
 // How a note falls: FALL_SPEED pixels every frame for LEAD_FRAMES frames,
-// which must bring it from the top of the screen exactly onto the marker.
+// which must bring it from just above the screen exactly onto its marker.
 #define FALL_SPEED 2
 #define LEAD_FRAMES 60
-#define START_Y (TARGET_Y - FALL_SPEED * LEAD_FRAMES)
+#define START_Y (LANDED_Y - FALL_SPEED * LEAD_FRAMES)
+
+// How close a press must be to the frame the note lands, either side.
+// Within PERFECT_FRAMES is a perfect; within GOOD_FRAMES is a good; any
+// further and the press is ignored. A note that gets GOOD_FRAMES past its
+// marker without a press is a miss. Notes move at a steady speed, so the
+// game measures these as distances from the marker.
+#define PERFECT_FRAMES 3
+#define GOOD_FRAMES 7
+#define PERFECT_PIXELS (PERFECT_FRAMES * FALL_SPEED)
+#define GOOD_PIXELS (GOOD_FRAMES * FALL_SPEED)
+
+// What the player sees is one frame behind the game. A sprite the game
+// moves is only shown from the frame after next, because sprite positions
+// are copied to the screen hardware once a frame. So when a note looks as
+// if it is on its marker, the game already has it one step further down,
+// and presses are judged against that height. Measured by the headless
+// check, which presses relative to what is on the screen.
+#define JUDGE_Y (LANDED_Y + FALL_SPEED)
 
 // When the music starts, counted in frames from when the reader starts.
 // The reader's head start is what gives a note time to fall. The headless
@@ -74,15 +105,44 @@ static const uint8_t lane_of_pitch[PITCHES_PER_OCTAVE] = {
 #define NO_NOTE 90
 #define EFFECT_PATTERN_BREAK 0x0D
 
-// Sprites are placed by their bottom-right corner, offset by these.
-#define SPRITE_X_OFFSET 8
-#define SPRITE_Y_OFFSET 16
+// The three judgements, in the order their counts are kept.
+#define PERFECT 0
+#define GOOD 1
+#define MISS 2
+#define JUDGEMENTS 3
 
-// One slot per sprite: whether a note is falling in it, which lane's
-// column it is in, and how far down.
+// Where things are drawn below the markers, in tiles. The latest judgement
+// has a line to itself. Each count is its word followed by two digits.
+#define WORD_TILES 6
+#define LATEST_X 7
+#define LATEST_Y 15
+static const uint8_t count_x[JUDGEMENTS] = {0, 10, 0};
+static const uint8_t count_y[JUDGEMENTS] = {16, 16, 17};
+static const unsigned char *const word_map[JUDGEMENTS] = {
+    word_perfect_map, word_good_map, word_miss_map
+};
+
+// One slot per sprite: whether a note is falling in it, which lane it is
+// in, and how far down.
 uint8_t falling_active[MAX_FALLING];
-uint8_t falling_x[MAX_FALLING];
+uint8_t falling_lane[MAX_FALLING];
 uint8_t falling_y[MAX_FALLING];
+
+// Each count is kept as two digits, tens and ones, because dividing by ten
+// to show a number is slow on this hardware.
+uint8_t count_tens[JUDGEMENTS];
+uint8_t count_ones[JUDGEMENTS];
+
+// The buttons held this frame and last, and those that went down just now.
+uint8_t keys;
+uint8_t keys_before;
+uint8_t keys_pressed;
+
+uint8_t lane;
+uint8_t nearest;
+uint8_t nearest_distance;
+uint8_t distance;
+uint8_t judged;
 
 // The reader's place in the song: which step of the order, which row of
 // that step's pattern, and a pointer to the row's three bytes.
@@ -102,6 +162,25 @@ uint8_t row_effect;
 uint8_t row_pitch;
 uint8_t row_lane;
 
+// Show a count's two digits after its word.
+static void draw_count(void)
+{
+    set_bkg_tile_xy(count_x[judged] + WORD_TILES, count_y[judged], digits_map[count_tens[judged]]);
+    set_bkg_tile_xy(count_x[judged] + WORD_TILES + 1, count_y[judged], digits_map[count_ones[judged]]);
+}
+
+// Set the three counts back to zero and clear the latest judgement. Tile 0
+// is blank.
+static void reset_counts(void)
+{
+    for (judged = 0; judged != JUDGEMENTS; judged++) {
+        count_tens[judged] = 0;
+        count_ones[judged] = 0;
+        draw_count();
+    }
+    fill_bkg_rect(LATEST_X, LATEST_Y, WORD_TILES, 1, 0);
+}
+
 // Point the reader at the first row of the current step's pattern.
 static void read_from_pattern_start(void)
 {
@@ -116,6 +195,10 @@ static void read_next_order(void)
     // The song stores the count of steps doubled.
     if (read_order == (*proof_song.order_cnt >> 1)) {
         read_order = 0;
+        // The song is starting again, so the score does too. This is the
+        // moment the first note of the new time through begins to fall,
+        // a second before the music itself comes round.
+        reset_counts();
     }
     read_from_pattern_start();
 }
@@ -127,9 +210,9 @@ static void drop_note(void)
     for (i = 0; i != MAX_FALLING; i++) {
         if (!falling_active[i]) {
             falling_active[i] = 1;
-            falling_x[i] = lane_x[row_lane];
+            falling_lane[i] = row_lane;
             falling_y[i] = START_Y;
-            move_sprite(i, falling_x[i] + SPRITE_X_OFFSET, START_Y + SPRITE_Y_OFFSET);
+            move_sprite(i, lane_x[row_lane] + SPRITE_X_OFFSET, START_Y);
             return;
         }
     }
@@ -179,12 +262,59 @@ static void read_one_row(void)
     }
 }
 
+// Record the judgement in `judged`: add one to its count and show its word.
+static void record_judgement(void)
+{
+    count_ones[judged]++;
+    if (count_ones[judged] == 10) {
+        count_ones[judged] = 0;
+        // The count stops at 99; the song has far fewer notes.
+        if (count_tens[judged] != 9) {
+            count_tens[judged]++;
+        } else {
+            count_ones[judged] = 9;
+        }
+    }
+    draw_count();
+    set_bkg_tiles(LATEST_X, LATEST_Y, WORD_TILES, 1, word_map[judged]);
+}
+
+// Take a note out of play and hide its sprite.
+static void remove_note(void)
+{
+    falling_active[i] = 0;
+    move_sprite(i, 0, 0);
+}
+
+// Judge a new press of lane `lane`'s button against the note in that lane
+// nearest its marker. With no note within the good window, the press is
+// ignored.
+static void judge_press(void)
+{
+    nearest_distance = GOOD_PIXELS + 1;
+    for (i = 0; i != MAX_FALLING; i++) {
+        if (falling_active[i] && falling_lane[i] == lane) {
+            if (falling_y[i] > JUDGE_Y) {
+                distance = falling_y[i] - JUDGE_Y;
+            } else {
+                distance = JUDGE_Y - falling_y[i];
+            }
+            if (distance < nearest_distance) {
+                nearest_distance = distance;
+                nearest = i;
+            }
+        }
+    }
+    if (nearest_distance <= GOOD_PIXELS) {
+        i = nearest;
+        remove_note();
+        judged = (nearest_distance <= PERFECT_PIXELS) ? PERFECT : GOOD;
+        record_judgement();
+    }
+}
+
 void game_init(void)
 {
-    // The title, on the bottom line where no note falls.
-    gotoxy(0, 17);
-    printf("GBRYTHM");
-
     // The markers are background tiles, one image per lane. The falling
     // note is a sprite, a small picture that moves freely over the
     // background. Sprites can use the same tiles as background images, so
@@ -201,6 +331,19 @@ void game_init(void)
     set_bkg_tiles(lane_x[4] >> 3, TARGET_Y >> 3, 1, 1, lane_5_a_map);
     set_bkg_data(falling_TILE_ORIGIN, falling_TILE_COUNT, falling_tiles);
 
+    // The words and digits are images too, so that the headless check can
+    // find and read them on the screen as it finds the markers. Each count
+    // starts as its word and 00.
+    set_bkg_data(word_perfect_TILE_ORIGIN, word_perfect_TILE_COUNT, word_perfect_tiles);
+    set_bkg_data(word_good_TILE_ORIGIN, word_good_TILE_COUNT, word_good_tiles);
+    set_bkg_data(word_miss_TILE_ORIGIN, word_miss_TILE_COUNT, word_miss_tiles);
+    set_bkg_data(digits_TILE_ORIGIN, digits_TILE_COUNT, digits_tiles);
+    for (judged = 0; judged != JUDGEMENTS; judged++) {
+        set_bkg_tiles(count_x[judged], count_y[judged], WORD_TILES, 1, word_map[judged]);
+    }
+    reset_counts();
+    keys_before = 0;
+
     // Sprite colours: the lightest is always see-through, then light grey,
     // dark grey and black, the same as the background's.
     OBP0_REG = DMG_PALETTE(DMG_WHITE, DMG_LITE_GRAY, DMG_DARK_GRAY, DMG_BLACK);
@@ -209,7 +352,12 @@ void game_init(void)
         set_sprite_tile(i, falling_map[0]);
         move_sprite(i, 0, 0);  // off screen
     }
+    // Nothing is drawn until each layer is switched on. The built-in text
+    // routines used to switch the background on as a side effect; the game
+    // no longer uses them, so it does it here.
+    SHOW_BKG;
     SHOW_SPRITES;
+    DISPLAY_ON;
 
     read_order = 0;
     read_from_pattern_start();
@@ -221,16 +369,30 @@ void game_init(void)
 
 void game_tick(void)
 {
-    // Move every falling note down. A note is shown on the marker for one
-    // frame, the frame its sound starts, and then removed.
+    // Read the buttons once per frame. A press counts on the frame the
+    // button goes down: held now and not held the frame before. Presses
+    // are judged before the notes move, against where the notes were drawn
+    // in the frame the player was looking at.
+    keys = joypad();
+    keys_pressed = keys & ~keys_before;
+    keys_before = keys;
+    for (lane = 0; lane != LANES; lane++) {
+        if (keys_pressed & lane_button[lane]) {
+            judge_press();
+        }
+    }
+
+    // Move every falling note down. A note carries on past its marker
+    // while a late press could still count; after that it is a miss.
     for (i = 0; i != MAX_FALLING; i++) {
         if (falling_active[i]) {
-            if (falling_y[i] == TARGET_Y) {
-                falling_active[i] = 0;
-                move_sprite(i, 0, 0);
+            falling_y[i] += FALL_SPEED;
+            if (falling_y[i] > JUDGE_Y + GOOD_PIXELS) {
+                remove_note();
+                judged = MISS;
+                record_judgement();
             } else {
-                falling_y[i] += FALL_SPEED;
-                move_sprite(i, falling_x[i] + SPRITE_X_OFFSET, falling_y[i] + SPRITE_Y_OFFSET);
+                move_sprite(i, lane_x[falling_lane[i]] + SPRITE_X_OFFSET, falling_y[i]);
             }
         }
     }
