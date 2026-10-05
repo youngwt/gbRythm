@@ -5,6 +5,7 @@ parent: initiative-gbrythm
 covers: []
 after: []
 assignee: ""
+status: done
 risk: medium
 ---
 
@@ -55,3 +56,9 @@ One song, five lanes, three judgements, on this Steam Deck. Not a title screen, 
 - Open question: are the two eighth notes of "-zing" playable at the current tempo? Entry 1 shows how they look; entry 6 settles it by play.
 - Open question: starting widths for the perfect and good windows. Entry 3's builder proposes them in its plan; entry 6 tunes them with the user.
 - Assumption: builds leave their changes uncommitted with a suggested message, by the user's standing preference.
+- Decision: the user approved the breakdown by committing it and starting the build; the decisions above marked "awaiting approval" stand (2026-10-05).
+- Decision: the open questions are answered. The game fits in 32K, using 6,531 bytes, and holds 60 frames a second in the emulator; the starting windows, 3 and 7 frames, became the final ones when the user said the timing was good enough; the quick notes are taken as playable on that same statement (2026-10-05).
+- Decision: the score is cleared when Start is pressed; the user asked for it to reset when the song looped, before the song had an ending (2026-10-05).
+- Decision: epic closed. The retrospective found all five Done when checks met, verdict accepted with open items, confirmed by the user (2026-10-05). See epic-first-playable-retrospective.md.
+- Decision: from the retrospective, the user chose to keep `make check` and `make check-debug` as two commands, to keep docs/setup.md as one file, and that Start still held when the results appear does not count (2026-10-05).
+- Decision: the check failing when the song's tempo is changed is raised as backlog/bug-the-headless-check-fails-when-the-song-s-tempo-is-changed.md (2026-10-05).
