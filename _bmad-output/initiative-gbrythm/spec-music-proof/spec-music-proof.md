@@ -17,11 +17,11 @@ A risk to retire, and something to learn. The rhythm game depends on the hUGEDri
 ## Capabilities
 
 - **CAP-1**
-  - **intent:** The proof ROM plays the opening phrase of "Amazing Grace" through hUGEDriver.
-  - **success:** The existing one-command build produces a ROM that plays the phrase in Emulicious, and the user recognises the tune.
+  - **intent:** The proof ROM plays the first half of a verse of "Amazing Grace" through hUGEDriver: "Amazing grace, how sweet the sound, that saved a wretch like me".
+  - **success:** The existing one-command build produces a ROM that plays it in Emulicious, and the user recognises the tune.
 - **CAP-2**
   - **intent:** An agent can check without a display that the ROM is playing music.
-  - **success:** The headless check passes when the ROM produces sound whose notes change over time, and fails on a ROM built with the music left out.
+  - **success:** The headless check passes when the ROM produces sound whose notes change over time, reporting the notes it heard, and fails on a ROM built with the music left out.
 - **CAP-3**
   - **intent:** The song lives in the repository as C source an agent can read, written by hand without a tracker program.
   - **success:** The song file is committed, the build compiles it into the ROM, and no tracker was used to produce it.
@@ -38,7 +38,8 @@ A risk to retire, and something to learn. The rhythm game depends on the hUGEDri
 - The music goes into the existing proof ROM. Its existing checks keep passing: the screen is not blank, both images are shown, and the screen changes when A is pressed.
 - The ROM stays 32K or smaller with no mapper.
 - The driver is hUGEDriver. No other music driver, and no patching of the driver's source.
-- If the packaged library does not work with GBDK 4.5.0, the driver is rebuilt from its source, with RGBDS installed into `tools/`. If that also fails, work stops and the finding is reported.
+- The packaged hUGEDriver 6.1.3 library is used as shipped. It links and runs under GBDK 4.5.0, so nothing is rebuilt and RGBDS is not installed.
+- The headless check requires at least three different notes and prints the notes heard; it does not compare them with the song. It reads one plain tone, so it cannot name notes when channels sound together.
 - The sound check is command-line only, with no window. The user listening once in Emulicious is the only human step.
 - The instructions say why each step exists and explain music concepts from scratch.
 
@@ -47,21 +48,15 @@ A risk to retire, and something to learn. The rhythm game depends on the hUGEDri
 - Anything reacting in time with the music, including the driver's call-routine feature; the game's own spec proves that.
 - Sound effects.
 - More than one song.
-- The full length of "Amazing Grace"; the opening phrase is enough.
+- The full length of "Amazing Grace"; half a verse is enough.
 - Installing or using the hUGETracker editor.
 - Any gameplay.
 
 ## Success signal
 
-- `make check` passes on a ROM that plays the opening of "Amazing Grace", and the user, listening in Emulicious, recognises the tune.
+- `make check` passes on a ROM that plays the first half of a verse of "Amazing Grace", and the user, listening in Emulicious, recognises the tune.
 
 ## Assumptions
 
-- The packaged release v6.1.3 (2024-07-14) is tried first, as the latest release; the repository has newer, unreleased commits.
-- The phrase is a single melody line on one sound channel, with no harmony.
 - The melody of "Amazing Grace" is in the public domain, so the song file needs no licence note.
-
-## Open Questions
-
-- Can PyBoy observe sound well enough for CAP-2? The current check runs it with sound emulation off, and the research did not assess PyBoy's audio. If it cannot, CAP-2 needs another route.
-- Does hUGEDriver's packaged library link and run under GBDK 4.5.0? Answering this is the purpose of the spec (CAP-5).
+- PyBoy's sound is taken as close enough to a real Game Boy's for this check; the two have not been compared.

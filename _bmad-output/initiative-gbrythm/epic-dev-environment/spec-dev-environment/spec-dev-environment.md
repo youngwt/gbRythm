@@ -42,6 +42,7 @@ An opportunity to capture. gbRythm is a hobby learning project with no deadline:
 - Nothing installs to the system partition: SteamOS's root is read-only and reset by OS updates.
 - All tools (GBDK, Java runtime, emulators) live inside the repository in a git-ignored folder; tool binaries are never committed, and their versions are pinned in the instructions.
 - Everything works from the VS Code Flatpak terminal, where the agent runs; tools are located by explicit path or project setting, never by assuming PATH.
+- Java programs that open a window are started on the host, not in the Flatpak sandbox: the sandbox has no X11 display.
 - CAP-1 and CAP-2 are command-line only and non-interactive: no window, click, or prompt.
 - Headless testing uses PyBoy run through `uv`; interactive debugging uses Emulicious with its VS Code extension.
 - Image conversion uses `png2asset`, bundled with GBDK; source images fit DMG limits (4 shades, 8×8 tiles).
@@ -69,7 +70,5 @@ An opportunity to capture. gbRythm is a hobby learning project with no deadline:
 
 ## Open Questions
 
-- Which Java version does Emulicious need, and does a Java runtime unpacked inside the repository run and open a window from the VS Code Flatpak sandbox, or must it launch on the host via `flatpak-spawn`?
-- Does the Emulicious VS Code debugger extension (last released 2023-11) still work with current Emulicious and VS Code?
 - Is PyBoy accurate enough for the proof ROM checks? Its screenshot should be compared against Emulicious.
 - Is there a headless Game Boy emulator drivable from .NET that would let the test script honour the user's .NET preference?
