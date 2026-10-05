@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<!--
+  gbRythm's play page: the game's ROM running in binjgb, a Game Boy emulator
+  for the browser. "make page" copies this file into build/page/ with the
+  ROM and the emulator beside it, and replaces the version marker below.
+  See docs/setup.md, steps 10 and 11.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>gbRythm</title>
+  <style>
+    body {
+      margin: 0 auto;
+      padding: 16px;
+      max-width: 520px;
+      font-family: system-ui, sans-serif;
+      line-height: 1.4;
+      color: #0f380f;
+      background: #e0f0c0;
+    }
+    h1 { margin: 0 0 8px; }
+    /* The Game Boy's screen is 160 by 144; shown at three times that. */
+    canvas {
+      display: block;
+      width: 480px;
+      height: 432px;
+      max-width: 100%;
+      border: 4px solid #0f380f;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    table { border-collapse: collapse; margin: 8px 0; }
+    th, td { border: 1px solid #306230; padding: 4px 10px; text-align: left; }
+    kbd {
+      padding: 1px 6px;
+      border: 1px solid #0f380f;
+      border-radius: 4px;
+      background: #f4fae4;
+      font-family: inherit;
+    }
+    footer { margin-top: 16px; font-size: 0.85em; }
+    a { color: inherit; }
+  </style>
+</head>
+<body>
+  <h1>gbRythm</h1>
+  <canvas width="160" height="144"></canvas>
+  <p id="status"></p>
+  <p>Press <kbd>Enter</kbd> to start. A note falls for each note of the tune: press its lane's key as it lands on the marker, which is the moment you hear it.</p>
+  <table>
+    <tr><th>Lane</th><th>Marker</th><th>Key</th></tr>
+    <tr><td>1</td><td>left arrow</td><td><kbd>&larr;</kbd></td></tr>
+    <tr><td>2</td><td>up arrow</td><td><kbd>&uarr;</kbd></td></tr>
+    <tr><td>3</td><td>right arrow</td><td><kbd>&rarr;</kbd></td></tr>
+    <tr><td>4</td><td>B</td><td><kbd>Z</kbd></td></tr>
+    <tr><td>5</td><td>A</td><td><kbd>X</kbd></td></tr>
+    <tr><td colspan="2">Start, and play again</td><td><kbd>Enter</kbd></td></tr>
+  </table>
+  <p>This page needs a keyboard.</p>
+  <footer>
+    <p>Playing gbRythm <span id="version">@VERSION@</span>, a game for the original Game Boy. Its <a href="https://github.com/youngwt/gbRythm">source and downloads</a> are on GitHub.</p>
+    <p>It runs here in <a href="https://github.com/binji/binjgb">binjgb</a> v0.1.11 by Ben Smith, used under the <a href="binjgb-LICENSE.txt">MIT licence</a>.</p>
+  </footer>
+  <script src="binjgb.js"></script>
+  <script src="play.js"></script>
+</body>
+</html>

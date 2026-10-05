@@ -2,9 +2,9 @@
 
 gbRythm is a rhythm game for the original Game Boy: a song plays, a note falls for each note of the tune, and you press the matching button as it lands.
 
-This document does two jobs. Steps 1 to 9 take a fresh checkout to a built ROM, an automatic check of it, and playing and debugging it in an emulator. The sections after them explain how the game works, for someone new to the Game Boy: start with "How to play". Run every command from the repository root.
+This document does two jobs. Steps 1 to 9 take a fresh checkout to a built ROM, an automatic check of it, and playing and debugging it in an emulator; steps 10 and 11 build the page that plays it in a web browser. The sections after them explain how the game works, for someone new to the Game Boy: start with "How to play". Run every command from the repository root.
 
-GitHub follows steps 1 to 5 itself on every push, running the commands exactly as they are written here, and then builds and checks the game. So if you change a command in those steps, the next push tests it.
+GitHub follows steps 1 to 5, 10 and 11 itself on every push, running the commands exactly as they are written here, and so builds and checks the game and assembles the play page. So if you change a command in those steps, the next push tests it.
 
 Everything is installed into `tools/`, a folder inside the repository that git ignores. Nothing is installed system-wide, because SteamOS keeps its system partition read-only and wipes changes to it on OS updates. To start again, delete `tools/` and repeat these steps. The one thing you lose is `tools/emulicious/Emulicious.ini`, where Emulicious keeps its settings such as key bindings; copy it out first if you have changed them.
 
@@ -245,6 +245,35 @@ What F5 does is set out in `.vscode/launch.json`, with the build step in `.vscod
 
 The extension tries to connect every tenth of a second and by default gives up after 25 tries, which a slow start of Java can exceed. `.vscode/settings.json` raises that to 100, about ten seconds. If F5 still reports that it could not connect, press F5 again.
 
+## 10. Install binjgb (the browser emulator)
+
+The play page runs the game in a web browser, and for that it needs a Game Boy emulator written for browsers. binjgb is the one chosen: it is small, it ran the game correctly when three were tried, and its MIT licence allows publishing it. It is two files, a script and the emulator itself compiled to WebAssembly, the format browsers run compiled code in. They are taken ready-built from binjgb's repository at the commit tagged v0.1.11, with its licence, which is published alongside them.
+
+```sh
+mkdir -p tools/binjgb
+BINJGB=https://raw.githubusercontent.com/binji/binjgb/8abd0d38d5bf109d7c280b27d815a8b53168adde
+curl -sSL -o tools/binjgb/binjgb.js $BINJGB/docs/binjgb.js
+curl -sSL -o tools/binjgb/binjgb.wasm $BINJGB/docs/binjgb.wasm
+curl -sSL -o tools/binjgb/LICENSE $BINJGB/LICENSE
+echo "6badde9a903d7a84df51c492a3ba9ed22788e7a3094a0f746ecd947eca9abf46  tools/binjgb/binjgb.js" | sha256sum -c -
+echo "eef06e172c236e1a4e853e215b7977e9e6caa0e1e516a228adb276a58ddd6f47  tools/binjgb/binjgb.wasm" | sha256sum -c -
+echo "89807acf2309bd285f033404ee78581602f3cd9b819a16ac2f0e5f60ff4a473e  tools/binjgb/LICENSE" | sha256sum -c -
+```
+
+Each `sha256sum` line must print `OK`. If one does not, the download is not the file these instructions were written with: stop.
+
+## 11. Build the play page
+
+```sh
+make page
+```
+
+This builds the ROM if needed and assembles the page in `build/page/`: `index.html` and `play.js` from `web/`, binjgb's two files and licence, and `gbrythm.gb`, the ROM, unchanged. The page is ordinary static files.
+
+A browser will not run the page from a file on disk, because it refuses to load the ROM that way; the page has to come from a web server. Python has a small one built in. Run `python3 -m http.server -d build/page 8000`, open `http://localhost:8000/` in a browser, and stop the server with Ctrl+C when done.
+
+The keys are the arrow keys Left, Up and Right for lanes 1 to 3, Z for B, X for A, and Enter for Start. They are set in the key table in `web/play.js`, which is binjgb's own example script with six small changes, each marked with a comment beginning `gbRythm:`. The page says which version it is playing; built here, it says "development build".
+
 ## How to play
 
 Open the ROM with `make run`, or in any Game Boy emulator: the file is `build/gbrythm.gb`.
@@ -422,6 +451,7 @@ Once the tools are installed, these are all you need. Run them from the reposito
 | `make run` | Builds, then opens the ROM in Emulicious to play |
 | `make debug` | Builds the debug ROM in `build/debug/`; F5 in VS Code does this for you |
 | `make check-debug` | Runs the same check on the debug ROM, the one F5 runs |
+| `make page` | Builds, then assembles the play page in `build/page/` |
 | `make clean` | Deletes `build/` |
 
 ## Where things are
@@ -440,13 +470,16 @@ Once the tools are installed, these are all you need. Run them from the reposito
 | `LICENSE` | The MIT licence: how the project's code may be reused | yes |
 | `scripts/convert-images.sh` | Converts the images to C and hands out their tile numbers | yes |
 | `scripts/java-host.sh` | Starts Java on the host so it can open a window | yes |
+| `web/` | The play page and its script, which run the ROM in a browser | yes |
 | `.vscode/` | VS Code debug configuration | yes |
 | `tools/gbdk/` | GBDK-2020 4.5.0 | no |
 | `tools/venv/` | Python environment with PyBoy | no |
 | `tools/hugedriver/` | hUGEDriver 6.1.3, the music driver | no |
 | `tools/java/` | Java runtime, Temurin 21 | no |
 | `tools/emulicious/` | Emulicious | no |
+| `tools/binjgb/` | binjgb v0.1.11, the browser emulator | no |
 | `build/` | The ROM, screenshots, C generated from images, and compiler output | no |
+| `build/page/` | The assembled play page | no |
 | `build/debug/` | The debug ROM and its `.cdb` debug symbols | no |
 
 ## What was found

@@ -6,6 +6,7 @@
 #   make check-debug   the same check on the debug ROM
 #   make debug   build a second ROM with debug symbols, for the debugger
 #   make run     build, then open the ROM in Emulicious
+#   make page    build, then assemble the page that plays the ROM in a browser
 #   make clean   delete everything the build made
 
 GBDK_HOME  ?= tools/gbdk
@@ -20,11 +21,17 @@ HUGE_LIB   := $(HUGE_HOME)/gbdk/hUGEDriver.lib
 # when make runs inside the VS Code Flatpak; see docs/setup.md.
 JAVA       := scripts/java-host.sh
 
+# The browser emulator the play page runs the ROM in.
+BINJGB_HOME := tools/binjgb
+# What the play page says it is playing. GitHub sets this to a release's tag.
+PAGE_VERSION ?= development build
+
 # Extra compiler flags; empty for the normal build, set by the debug target.
 LCCFLAGS   ?=
 
 BUILD_DIR  := build
 ROM        := $(BUILD_DIR)/gbrythm.gb
+PAGE_DIR   := $(BUILD_DIR)/page
 SOURCES    := $(wildcard src/*.c)
 HEADERS    := $(wildcard src/*.h)
 
@@ -39,7 +46,7 @@ OBJECTS    := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES)) \
 # never leaves a ROM that looks up to date.
 .DELETE_ON_ERROR:
 
-.PHONY: all check check-debug debug run clean require-gbdk require-python require-emulicious require-hugedriver
+.PHONY: all check check-debug debug run page clean require-gbdk require-python require-emulicious require-hugedriver require-binjgb
 
 all: $(ROM)
 
@@ -105,6 +112,16 @@ debug:
 run: $(ROM) | require-emulicious
 	$(JAVA) -jar $(EMULICIOUS) $(ROM)
 
+# Assemble the play page: the page and its script from web/, the emulator's
+# two files and its licence, and the ROM, unchanged. The folder is made
+# afresh each time so nothing stale is published.
+page: $(ROM) | require-binjgb
+	rm -rf $(PAGE_DIR)
+	mkdir -p $(PAGE_DIR)
+	cp web/play.js $(BINJGB_HOME)/binjgb.js $(BINJGB_HOME)/binjgb.wasm $(ROM) $(PAGE_DIR)/
+	cp $(BINJGB_HOME)/LICENSE $(PAGE_DIR)/binjgb-LICENSE.txt
+	sed 's|@VERSION@|$(PAGE_VERSION)|' web/index.html > $(PAGE_DIR)/index.html
+
 clean:
 	rm -rf $(BUILD_DIR)
 
@@ -113,6 +130,9 @@ require-gbdk:
 
 require-hugedriver:
 	@test -f $(HUGE_LIB) || { echo "hUGEDriver not found at $(HUGE_LIB). Follow docs/setup.md."; exit 1; }
+
+require-binjgb:
+	@test -f $(BINJGB_HOME)/binjgb.wasm || { echo "binjgb not found in $(BINJGB_HOME). Follow docs/setup.md, step 10."; exit 1; }
 
 require-python:
 	@test -x $(PYTHON) || { echo "PyBoy environment not found at $(PYTHON). Follow docs/setup.md."; exit 1; }
