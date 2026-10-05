@@ -3,7 +3,7 @@ title: 'A version tag publishes a release'
 type: 'feature'
 ticket: '2'
 created: '2026-10-05'
-status: 'built'
+status: done
 baseline_revision: '46b1f0c2967dff27a66e236305a04e6ee6008105'
 route: 'oneshot'
 route_source: 'auto'
@@ -61,6 +61,14 @@ Not verifiable here, and the point of the story. Outstanding, in order, all the 
 1. Commit and push to main; the run should pass as before and publish nothing.
 2. Push a tag on a commit that fails the check; no release should appear.
 3. Push `v0.1.0` on main; a release of that name should appear with `gbrythm.gb` attached, and GitHub should show the repository as MIT licensed.
+
+On GitHub, 2026-10-05, read from its public API:
+
+- Push to main, commit `6e93465`: run 37381520268 passed. The build job ran and the release job was skipped, so nothing was published.
+- Tag `v0.0.0-broken` on commit `949b880`, the perfect window widened to 4 frames on a throwaway branch: run 37381809306 failed at "docs/setup.md step 5: run the headless check". The release job was skipped and no release was created.
+- Tag `v0.1.0` on commit `6e93465`: run 37382033284 passed, both jobs. The release "gbRythm v0.1.0" exists with one file, `gbrythm.gb`, of 32,768 bytes, at `https://github.com/youngwt/gbRythm/releases/download/v0.1.0/gbrythm.gb`. The user confirmed "release works".
+- GitHub reports the repository's licence as MIT.
+- Left over: the tag `v0.0.0-broken` is still on GitHub and on the user's machine. It has no release. Removing it is the user's action.
 
 ## Review Triage Log
 
