@@ -1,0 +1,90 @@
+# tickets.toml — the agreed children of epic-first-playable. tickets.py reads it.
+# The order of the tables is the build order. `id` names a child for good and is never reused.
+
+[[entry]]
+id = 1
+type = "story"
+title = "The song's notes fall in time in one lane"
+description = "Replaces the proof screen with a play screen where each note of the song already in the ROM falls down a single lane and reaches a target line as it sounds, with the falling notes taken from the song's own data, and makes the headless check measure the gap between arrival and sound; records whether the ROM still fits in 32K and whether the frame rate holds."
+verify = "make check passes when every melody note has one falling note arriving within two frames of its sound, fails when the notes are shifted late, and the instructions state the size and speed findings."
+covers = ["CAP-1", "CAP-5"]
+after = []
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 2
+type = "story"
+title = "Notes fall in five lanes by pitch"
+description = "Spreads the falling notes across the five lanes of lane-mapping.md, each with its own marker at the target line, so a note's lane is decided by its pitch in any octave."
+verify = "make check passes when every note falls in the lane the mapping gives and fails when two lanes are swapped."
+covers = ["CAP-1", "CAP-5"]
+after = [1]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 3
+type = "story"
+title = "Presses are judged perfect, good or miss"
+description = "Reads the five lane buttons, grades a press against the nearest note in that lane as perfect or good, counts a note not pressed in time as a miss, shows each judgement on screen, and ignores presses with no note near; the headless check gains scripted presses."
+verify = "make check plays the song with on-time presses, no presses, late presses and stray presses, and passes only when they score all perfects, all misses, goods, and no change."
+covers = ["CAP-2", "CAP-5"]
+after = [2]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 4
+type = "story"
+title = "Start begins the song and results follow it"
+description = "Makes the game wait for Start before the song begins, shows a results screen with the perfect, good and miss counts when it ends, and plays again on Start with the counts reset."
+verify = "make check reads counts from the results screen that add up to the number of notes, and a second play after Start starts from zero."
+covers = ["CAP-3", "CAP-5"]
+after = [3]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 5
+type = "story"
+title = "The song is the full first verse"
+description = "Extends the song from the half verse to the whole first verse of Amazing Grace, written by hand in the song file, with the falling notes and the check following from the song's data with no other change."
+verify = "make check passes with the longer song and lists the verse's notes, and the user, listening, recognises the verse."
+covers = ["CAP-4"]
+after = [4]
+hitl = true
+risk = "low"
+
+[[entry]]
+id = 6
+type = "story"
+title = "The timing windows feel fair"
+description = "The user plays the song in Emulicious and says how the judgements feel; the perfect and good windows, and the tempo if the quick notes are unplayable, are adjusted until they match the user's sense of their own timing."
+verify = "The user plays the song through and says the judgements are fair; make check still passes with the final values."
+covers = ["CAP-6"]
+after = [5]
+hitl = true
+risk = "low"
+
+[[entry]]
+id = 7
+type = "story"
+title = "Refactor sweep"
+description = "Cleans up the C source, check script, build file and instructions; scope is set when it starts from the plans and deferred review findings of entries 1 to 6."
+verify = "The build and the headless check still pass after the cleanup."
+covers = ["CAP-1", "CAP-5"]
+after = [1, 2, 3, 4, 5, 6]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 8
+type = "story"
+title = "The instructions explain the game and rebuild from nothing"
+description = "Completes the instructions so a reader learns the lanes, the judging and how the falling notes follow the song, then deletes the tools folder and follows the instructions step by step, fixing every gap."
+verify = "After the rebuild from the instructions alone, make check passes."
+covers = ["CAP-7"]
+after = [7]
+hitl = false
+risk = "low"

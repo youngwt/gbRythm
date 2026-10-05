@@ -11,3 +11,9 @@ id = 2
 slug = "epic-music-proof"
 title = "The proof ROM plays Amazing Grace through hUGEDriver"
 covers = []
+
+[[epic]]
+id = 3
+slug = "epic-first-playable"
+title = "The player plays Amazing Grace and is judged on timing"
+covers = []
