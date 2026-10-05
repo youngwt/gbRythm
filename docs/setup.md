@@ -4,6 +4,8 @@ gbRythm is a rhythm game for the original Game Boy: a song plays, a note falls f
 
 This document does two jobs. Steps 1 to 9 take a fresh checkout to a built ROM, an automatic check of it, and playing and debugging it in an emulator. The sections after them explain how the game works, for someone new to the Game Boy: start with "How to play". Run every command from the repository root.
 
+GitHub follows steps 1 to 5 itself on every push, running the commands exactly as they are written here, and then builds and checks the game. So if you change a command in those steps, the next push tests it.
+
 Everything is installed into `tools/`, a folder inside the repository that git ignores. Nothing is installed system-wide, because SteamOS keeps its system partition read-only and wipes changes to it on OS updates. To start again, delete `tools/` and repeat these steps. The one thing you lose is `tools/emulicious/Emulicious.ini`, where Emulicious keeps its settings such as key bindings; copy it out first if you have changed them.
 
 ## What you need already
@@ -433,6 +435,8 @@ Once the tools are installed, these are all you need. Run them from the reposito
 | `src/song.c` | The song, the first verse of "Amazing Grace", as a table of notes | yes |
 | `scripts/check_rom.py` | The headless check, one function for each thing it checks | yes |
 | `scripts/screen.py`, `scripts/sound.py` | The check's helpers for reading the screen and the sound | yes |
+| `scripts/run-setup-steps.py` | Runs the commands of the numbered steps in this document, as written; GitHub uses it | yes |
+| `.github/workflows/build.yml` | Tells GitHub to build and check the game on every push | yes |
 | `scripts/convert-images.sh` | Converts the images to C and hands out their tile numbers | yes |
 | `scripts/java-host.sh` | Starts Java on the host so it can open a window | yes |
 | `.vscode/` | VS Code debug configuration | yes |

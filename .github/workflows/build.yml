@@ -1,0 +1,61 @@
+# Builds the game and checks it on every push to main.
+#
+# The tools are installed by running the commands in docs/setup.md as they
+# are written there, through scripts/run-setup-steps.py. There is no second
+# copy of the install steps here: if the instructions are wrong, this fails.
+# docs/setup.md explains each step.
+
+name: Build and check
+
+on:
+  push:
+    branches: [main]
+
+# The job only reads the repository.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      # The Python the check runs on, the same version as on the machine the
+      # game is written on. uv downloads it.
+      UV_PYTHON: "3.13"
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      # docs/setup.md lists uv under "What you need already". This is the
+      # version the instructions were written with.
+      - name: Install uv
+        run: pipx install uv==0.12.22
+
+      - name: "docs/setup.md step 1: install GBDK-2020 (the compiler)"
+        run: python3 scripts/run-setup-steps.py 1
+
+      - name: "docs/setup.md step 2: install PyBoy (the headless emulator)"
+        run: python3 scripts/run-setup-steps.py 2
+
+      - name: "docs/setup.md step 3: install hUGEDriver (the music driver)"
+        run: python3 scripts/run-setup-steps.py 3
+
+      - name: "docs/setup.md step 4: build the ROM"
+        run: python3 scripts/run-setup-steps.py 4
+
+      - name: "docs/setup.md step 5: run the headless check"
+        run: python3 scripts/run-setup-steps.py 5
+
+      - name: Run the headless check on the debug ROM
+        run: make check-debug
+
+      # Kept whether the checks pass or fail, so a failure can be looked at.
+      - name: Keep the ROM and the check's screenshot
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gbrythm
+          path: |
+            build/gbrythm.gb
+            build/screenshot-play.png
+          if-no-files-found: ignore
