@@ -4,6 +4,6 @@
 #include "hUGEDriver.h"
 
 // The song the ROM plays; the notes are in song.c.
-extern const hUGESong_t proof_song;
+extern const hUGESong_t song_verse;
 
 #endif

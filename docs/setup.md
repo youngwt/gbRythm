@@ -250,10 +250,10 @@ An image must fit what the original Game Boy can show:
 
 - **Width and height are multiples of 8 pixels**, because the screen is made of 8×8 tiles.
 - **At most four shades.** The original Game Boy has four: white, light grey, dark grey and black. Use `#FFFFFF`, `#AAAAAA`, `#555555` and `#000000`.
-- **Include some white.** The converter numbers the shades it finds from lightest to darkest, so in an image with no white the lightest shade it does have is shown as white, and the rest shift with it. One white pixel is enough.
+- **Use all four shades.** The converter numbers the shades it finds from lightest to darkest, so an image that skips one is shown with the others shifted: with no white, for example, its lightest shade is drawn as white. One pixel of each shade is enough. The grey line under every marker and word in this game is partly there for this.
 - **No larger than the screen**, which is 160×144 pixels.
 
-If an image breaks the first two rules, `make` stops and prints an error. The converter itself exits successfully even when it reports an error, and it accepts a fifth shade without complaint when that shade sits in a tile of its own, so `scripts/convert-images.sh` checks its output for both. The converter's full output is kept in `build/NAME.c.log`.
+If an image breaks any of the first three rules, `make` stops and prints an error naming the image. The converter is not much help here: it exits successfully even when it reports an error, it accepts a fifth shade without complaint when that shade sits in a tile of its own, it says nothing about a missing shade, and on some images with too many colours it simply crashes. `scripts/convert-images.sh` checks for each of these. The converter's full output is kept in `build/NAME.c.log`.
 
 **Several images.** Background tiles are numbered 0 to 255. The lower half is kept for the Game Boy's built-in text font, which this game no longer uses, so images share numbers 128 to 255: 128 tiles between them. The build hands these out for you. `scripts/convert-images.sh` converts the images in alphabetical order and starts each one where the one before ended, so any number of images can be on screen together without overwriting each other, and you never type a tile number. Today there are twelve images using 45 tiles between them: the digits, the falling note, the five lane markers and five words or phrases. The C program reads each image's start from `NAME_TILE_ORIGIN`.
 
@@ -401,7 +401,8 @@ Once the tools are installed, these are all you need. Run them from the reposito
 | `Makefile` | Build and check commands | yes |
 | `src/game.c` | The game: waiting for Start, the lanes, the falling notes, judging, the counts and the results | yes |
 | `src/song.c` | The song, the first verse of "Amazing Grace", as a table of notes | yes |
-| `scripts/check_rom.py` | The headless check | yes |
+| `scripts/check_rom.py` | The headless check, one function for each thing it checks | yes |
+| `scripts/screen.py`, `scripts/sound.py` | The check's helpers for reading the screen and the sound | yes |
 | `scripts/convert-images.sh` | Converts the images to C and hands out their tile numbers | yes |
 | `scripts/java-host.sh` | Starts Java on the host so it can open a window | yes |
 | `.vscode/` | VS Code debug configuration | yes |

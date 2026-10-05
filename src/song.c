@@ -163,7 +163,7 @@ static const unsigned char waves[] = {
 
 // Tempo is the number of frames each row lasts. At 10, a beat of four rows
 // takes 40 frames, two thirds of a second: 90 beats a minute.
-const hUGESong_t proof_song = {
+const hUGESong_t song_verse = {
     10, &order_cnt, order1, order2, order3, order4,
     duty_instruments, wave_instruments, noise_instruments, NULL, waves
 };

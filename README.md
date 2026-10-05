@@ -12,6 +12,7 @@ Then, from the repository root:
 |---|---|
 | `make` | Builds the ROM, `build/gbrythm.gb` |
 | `make check` | Builds, then runs the ROM with no window and reports `PASS` or `FAIL`; a screenshot lands in `build/` |
+| `make check-debug` | The same check on the debug ROM, the one F5 runs |
 | `make run` | Builds, then opens the ROM in Emulicious to play |
 | `make clean` | Deletes `build/` |
 
@@ -21,6 +22,6 @@ Then, from the repository root:
 
 - `src/` — C source for the ROM, including the song in `song.c`
 - `assets/` — PNG images, converted to C by the build
-- `scripts/` — the headless check, and a helper that starts Java
+- `scripts/` — the headless check, the image converter's wrapper, and a helper that starts Java
 - `docs/setup.md` — installing the tools, with the reason for each step, and how the images and the music work
 - `_bmad-output/` — specs, plans and tickets

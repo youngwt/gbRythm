@@ -6,6 +6,11 @@
 // The game waits for Start, plays the song once, and then shows the results
 // until Start is pressed again.
 //
+// The file reads top to bottom: the settings and the game's state first,
+// then drawing the counts, the falling notes, reading the song, judging,
+// the clock and the music, starting and ending a play, and last what
+// happens each frame.
+//
 // The falling notes are not a second copy of the tune. The game reads the
 // song's own rows, the same data the music driver plays, but starts reading
 // LEAD_FRAMES before the music starts. A note that begins on a row is
@@ -205,6 +210,8 @@ uint8_t row_effect;
 uint8_t row_pitch;
 uint8_t row_lane;
 
+// ---- Drawing the counts ----
+
 // Show a count's two digits after its word.
 static void draw_count(void)
 {
@@ -224,34 +231,7 @@ static void reset_counts(void)
     fill_bkg_rect(LATEST_X, LATEST_Y, WORD_TILES, 1, 0);
 }
 
-static void game_tick(void);
-
-// Point the reader at the first row of the current step's pattern.
-static void read_from_pattern_start(void)
-{
-    read_row = 0;
-    read_ptr = proof_song.order1[read_order];
-}
-
-// Move the reader to the next step of the song, wrapping to the first.
-static void read_next_order(void)
-{
-    read_order++;
-    // The song stores the count of steps doubled.
-    if (read_order == (*proof_song.order_cnt >> 1)) {
-        // That was the last step: the reader has reached the end of the
-        // song, a second ahead of the music. It now knows how many frames
-        // the song lasts: the driver must run exactly that many times, and
-        // once more would start the tune again. The total is
-        // written before the flag that says it is there, because the music
-        // runs on an interrupt and could look at any moment.
-        read_order = 0;
-        song_read = 1;
-        music_runs_total = song_frames;
-        music_total_known = 1;
-    }
-    read_from_pattern_start();
-}
+// ---- Falling notes ----
 
 // Start a note falling from the top of lane row_lane, in the first free
 // slot.
@@ -268,11 +248,47 @@ static void drop_note(void)
     }
 }
 
+// Take a note out of play and hide its sprite.
+static void remove_note(void)
+{
+    falling_active[i] = 0;
+    move_sprite(i, 0, 0);
+}
+
+// ---- Reading the song ----
+
+// Point the reader at the first row of the current step's pattern.
+static void read_from_pattern_start(void)
+{
+    read_row = 0;
+    read_ptr = song_verse.order1[read_order];
+}
+
+// Move the reader to the next step of the song, wrapping to the first.
+static void read_next_order(void)
+{
+    read_order++;
+    // The song stores the count of steps doubled.
+    if (read_order == (*song_verse.order_cnt >> 1)) {
+        // That was the last step: the reader has reached the end of the
+        // song, a second ahead of the music. It now knows how many frames
+        // the song lasts: the driver must run exactly that many times, and
+        // once more would start the tune again. The total is
+        // written before the flag that says it is there, because the music
+        // runs on an interrupt and could look at any moment.
+        read_order = 0;
+        song_read = 1;
+        music_runs_total = song_frames;
+        music_total_known = 1;
+    }
+    read_from_pattern_start();
+}
+
 // Read one row of the melody and drop a note if the row starts one.
 static void read_one_row(void)
 {
     // A row is DN(note, instrument, effect) packed into three bytes.
-    song_frames += proof_song.tempo;
+    song_frames += song_verse.tempo;
     row_note = read_ptr[0] & 0x7F;
     row_instrument = ((read_ptr[0] & 0x80) >> 3) | (read_ptr[1] >> 4);
     row_effect = read_ptr[1] & 0x0F;
@@ -285,7 +301,7 @@ static void read_one_row(void)
         // An instrument with no starting volume is how the song writes a
         // rest, so it is not a note to play.
         if (read_instrument != 0 &&
-            (proof_song.duty_instruments[read_instrument - 1].envelope >> 4) != 0) {
+            (song_verse.duty_instruments[read_instrument - 1].envelope >> 4) != 0) {
             // Notes are numbered up from C in the lowest octave, twelve to
             // an octave, so taking away whole octaves leaves the pitch. The
             // same pitch lands in the same lane in every octave.
@@ -313,6 +329,8 @@ static void read_one_row(void)
     }
 }
 
+// ---- Judging ----
+
 // Record the judgement in `judged`: add one to its count and show its word.
 static void record_judgement(void)
 {
@@ -328,13 +346,6 @@ static void record_judgement(void)
     }
     draw_count();
     set_bkg_tiles(LATEST_X, LATEST_Y, WORD_TILES, 1, word_map[judged]);
-}
-
-// Take a note out of play and hide its sprite.
-static void remove_note(void)
-{
-    falling_active[i] = 0;
-    move_sprite(i, 0, 0);
 }
 
 // Judge a new press of lane `lane`'s button against the note in that lane
@@ -364,10 +375,12 @@ static void judge_press(void)
     }
 }
 
+// ---- The clock and the music ----
+
 // Run on every vertical blank, by interrupt. Counts the frame and runs the
 // music. Keeping the music here, not in game_tick, means it starts and
 // stops on exact frames even if the game is ever slow.
-void game_frame(void)
+static void game_frame(void)
 {
     frame_count++;
 
@@ -388,6 +401,8 @@ void game_frame(void)
         }
     }
 }
+
+// ---- Starting and ending a play ----
 
 // Begin a play: clear the score and the messages, start reading the song
 // from the top, and book the music to start MUSIC_START_FRAME frames from
@@ -411,7 +426,7 @@ static void start_play(void)
     NR52_REG = 0x80;
     NR51_REG = 0xFF;
     NR50_REG = 0x77;
-    hUGE_init(&proof_song);
+    hUGE_init(&song_verse);
     music_runs_done = 0;
     music_total_known = 0;
     music_start_frame = frames_done + MUSIC_START_FRAME;
@@ -489,16 +504,7 @@ void game_init(void)
     }
 }
 
-// Deal with every frame that has passed since the last call. Normally that
-// is one. If the game ever took longer than a frame, this runs it again to
-// catch up, so the falling notes stay in step with the music.
-void game_catch_up(void)
-{
-    while (frames_done != frame_count) {
-        game_tick();
-        frames_done++;
-    }
-}
+// ---- Each frame ----
 
 static void game_tick(void)
 {
@@ -546,12 +552,23 @@ static void game_tick(void)
         // plays them at.
         if (read_wait == 0) {
             read_one_row();
-            read_wait = proof_song.tempo;
+            read_wait = song_verse.tempo;
         }
         read_wait--;
     } else if (music_state == MUSIC_OFF && notes_in_play == 0) {
         // The reader has finished, the music has stopped, and the last
         // note has been judged.
         show_results();
+    }
+}
+
+// Deal with every frame that has passed since the last call. Normally that
+// is one. If the game ever took longer than a frame, this runs it again to
+// catch up, so the falling notes stay in step with the music.
+void game_catch_up(void)
+{
+    while (frames_done != frame_count) {
+        game_tick();
+        frames_done++;
     }
 }

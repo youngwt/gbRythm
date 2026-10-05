@@ -37,7 +37,13 @@ for png in "$@"; do
     "$png2asset" "$png" -map -tile_origin "$next_tile" -noflip -o "$out" > "$out.log" 2>&1
     status=$?
     cat "$out.log"
-    if [ "$status" -ne 0 ] || grep -qi "error" "$out.log"; then
+    if grep -qi "error" "$out.log"; then
+        exit 1
+    fi
+    # The converter can also stop without a message; it crashes on some
+    # images with more than four colours.
+    if [ "$status" -ne 0 ]; then
+        echo "error: the image converter failed on $png without saying why (exit status $status). Check the image uses only the Game Boy's four shades." >&2
         exit 1
     fi
 
@@ -47,6 +53,17 @@ for png in "$@"; do
     palettes=$(sed -n "s/^#define ${name}_PALETTE_COUNT \([0-9][0-9]*\).*/\1/p" "$output_dir/$name.h")
     if [ "$palettes" != "1" ]; then
         echo "error: $png uses more than four shades; the original Game Boy has only four." >&2
+        exit 1
+    fi
+
+    # The converter numbers the shades it finds from lightest to darkest, so
+    # an image that skips one of the four is shown with the others shifted:
+    # with no white, its lightest shade is drawn as white. Every image must
+    # therefore use all four. The palette in the generated C lists them, with
+    # the last repeated when there are fewer.
+    shades=$(grep -A1 "${name}_palettes\[" "$out" | grep -o 'RGB8([^)]*)' | sort -u | wc -l)
+    if [ "$shades" -ne 4 ]; then
+        echo "error: $png uses $shades of the Game Boy's four shades; it must use all four (white, light grey, dark grey, black), or the ones it has are shown shifted." >&2
         exit 1
     fi
 

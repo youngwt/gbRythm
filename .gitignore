@@ -17,3 +17,6 @@ tools/
 # OS / editor clutter
 .DS_Store
 *.swp
+
+# Python leaves these beside the check scripts
+__pycache__/
