@@ -17,3 +17,9 @@ id = 3
 slug = "epic-first-playable"
 title = "The player plays Amazing Grace and is judged on timing"
 covers = []
+
+[[epic]]
+id = 4
+slug = "epic-publish"
+title = "Anyone can download the game or play it in a browser"
+covers = []

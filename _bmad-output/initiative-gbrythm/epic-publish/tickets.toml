@@ -1,0 +1,68 @@
+# tickets.toml — the agreed children of epic-publish. tickets.py reads it.
+# The order of the tables is the build order. `id` names a child for good and is never reused.
+
+[[entry]]
+id = 1
+type = "story"
+title = "GitHub builds and checks every push"
+description = "Adds a workflow that, on every push to main, installs the tools at the versions and checksums the instructions pin, builds the ROM with make, and runs both headless checks; the user pushes it and the result is read from GitHub."
+verify = "A push shows a pass on GitHub with the build and both checks run, and a push of a deliberately broken check shows a failure naming the step."
+covers = ["CAP-1"]
+after = []
+hitl = true
+risk = "medium"
+
+[[entry]]
+id = 2
+type = "story"
+title = "A version tag publishes a release"
+description = "Adds the MIT licence, confirms the licences of what is built into the ROM allow publishing it, and extends the workflow so that a pushed version tag whose build and checks pass creates a GitHub Release with the ROM attached; the user pushes the first tag."
+verify = "Pushing a tag creates a release of that name with the ROM attached, a tag on a commit that fails the check creates nothing, and GitHub shows the repository as MIT licensed."
+covers = ["CAP-2", "CAP-5"]
+after = [1]
+hitl = true
+risk = "medium"
+
+[[entry]]
+id = 3
+type = "spike"
+title = "Which browser emulator runs the game"
+description = "Finds the browser Game Boy emulators that can be embedded as static files, tries the ROM in the candidates, and compares them on correctness, key mapping for six buttons, sound, licence and size, for the user to choose one; the answer is recorded in this epic's Notes."
+verify = "The epic's Notes name the chosen emulator, its version and licence, and the evidence that it plays the song through with sound."
+covers = ["CAP-3"]
+after = []
+hitl = true
+risk = "low"
+
+[[entry]]
+id = 4
+type = "story"
+title = "The latest release plays in a browser"
+description = "Builds the play page around the emulator chosen in entry 3, with the keys for the five lane buttons and Start shown, and has a release publish the page with that release's ROM to GitHub Pages; the user switches Pages on and tries it."
+verify = "After a release, the page loads that release's ROM, starts on a key press, and the song can be played through to its results with sound; a failed check leaves the page unchanged."
+covers = ["CAP-3"]
+after = [2, 3]
+hitl = true
+risk = "medium"
+
+[[entry]]
+id = 5
+type = "story"
+title = "The README leads to playing and the instructions explain publishing"
+description = "Adds links from the README to the play page and the latest release, and a section in the instructions on what GitHub does on a push and on a tag, how to publish a release, and where the play page comes from."
+verify = "Both README links work in a browser that is not signed in to GitHub, and a reader of the instructions can publish a release from them."
+covers = ["CAP-4", "CAP-6"]
+after = [4]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 6
+type = "story"
+title = "Refactor sweep"
+description = "Cleans up the workflow files, the play page and the instructions; scope is set when it starts from the plans and deferred review findings of entries 1 to 5."
+verify = "A push still passes on GitHub, and a release still publishes the ROM and the page."
+covers = ["CAP-1", "CAP-2", "CAP-3"]
+after = [1, 2, 3, 4, 5]
+hitl = true
+risk = "low"
