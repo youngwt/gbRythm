@@ -16,22 +16,30 @@
 
 #include "song.h"
 
-// Channel 1: the first half of "Amazing Grace", in G major:
+// Channel 1: the first verse of "Amazing Grace", in G major:
 //
 //   A - ma - zing  grace,  how  sweet  the  sound,
 //   D   G    B G   B       A    G      E    D
 //
-//   that  saved  a    wretch  like  me
+//   that  saved  a    wretch  like  me.
 //   D     G      B G  B       A     D (the D above)
 //
+//   I  once  was  lost,  but  now  am   found,
+//   B  D B   D B  G      D    E G  G E  D        (D is the D above)
+//
+//   was  blind  but  now  I  see.
+//   D    G      B G  B    A  G
+//
 // The tune has three beats to the bar. One beat, a quarter note, is four
-// rows here, so a half note is eight rows and an eighth note is two.
+// rows here, so a half note is eight rows, an eighth note is two, and a
+// dotted quarter note is six. Where one word has two notes, both are shown.
 //
 // The driver names octaves one higher than usual: its D_5 is the D just
 // above middle C, which most music calls D4.
 //
-// A pattern is always 64 rows, so the tune is split across two. The first
-// is exactly full.
+// A pattern is always 64 rows, so the tune is split across three. A note
+// that is still sounding when a pattern ends simply carries on into the
+// next.
 static const unsigned char melody_1[] = {
     // "A-", a quarter note
     DN(D_5,1,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
@@ -59,7 +67,6 @@ static const unsigned char melody_1[] = {
     DN(G_5,1,0x000), DN(___,0,0x000),
 };
 
-// The second pattern needs only 36 rows, so it ends early with an effect.
 static const unsigned char melody_2[] = {
     // "wretch", a half note
     DN(B_5,1,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
@@ -69,14 +76,45 @@ static const unsigned char melody_2[] = {
     DN(D_6,1,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
     DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
     DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
-    // Instrument 2 has no volume, so this "note" is a rest: one beat of
-    // silence, after a note that has already faded away. The effect on its
-    // last row, D01, is "pattern break": skip the rest of this pattern and go
-    // to the next step of the song, which is back to the start.
-    DN(D_6,2,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0xD01),
-    // Never reached: the 28 rows after the pattern break.
-    DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
-    DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
+    // "I", a quarter note
+    DN(B_5,1,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
+    // "once", a dotted quarter note and an eighth
+    DN(D_6,1,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
+    DN(B_5,1,0x000), DN(___,0,0x000),
+    // "was", two eighth notes
+    DN(D_6,1,0x000), DN(___,0,0x000),
+    DN(B_5,1,0x000), DN(___,0,0x000),
+    // "lost", a half note
+    DN(G_5,1,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
+    // "but", a quarter note
+    DN(D_5,1,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
+    // "now", a dotted quarter note; its last two rows are at the top of the next pattern
+    DN(E_5,1,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
+};
+
+static const unsigned char melody_3[] = {
+    // "now" is still sounding
+    DN(___,0,0x000), DN(___,0,0x000),
+    // the eighth note that finishes "now"
+    DN(G_5,1,0x000), DN(___,0,0x000),
+    // "am", two eighth notes
+    DN(G_5,1,0x000), DN(___,0,0x000),
+    DN(E_5,1,0x000), DN(___,0,0x000),
+    // "found", a half note
+    DN(D_5,1,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
+    // "was", a quarter note
+    DN(D_5,1,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
+    // "blind", a half note
+    DN(G_5,1,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
+    // "but", two eighth notes
+    DN(B_5,1,0x000), DN(___,0,0x000),
+    DN(G_5,1,0x000), DN(___,0,0x000),
+    // "now", a half note
+    DN(B_5,1,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
+    // "I", a quarter note
+    DN(A_5,1,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
+    // "see", held for five beats, to the end of the song
+    DN(G_5,1,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
     DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
     DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000), DN(___,0,0x000),
 };
@@ -94,13 +132,12 @@ static const unsigned char silence[] = {
 };
 
 // The order: which pattern each channel plays, one entry per step of the
-// song. This song has two steps, then starts again. The driver wants the
-// count doubled.
-static const unsigned char order_cnt = 4;
-static const unsigned char* const order1[] = {melody_1, melody_2};
-static const unsigned char* const order2[] = {silence, silence};
-static const unsigned char* const order3[] = {silence, silence};
-static const unsigned char* const order4[] = {silence, silence};
+// song. This song has three steps. The driver wants the count doubled.
+static const unsigned char order_cnt = 6;
+static const unsigned char* const order1[] = {melody_1, melody_2, melody_3};
+static const unsigned char* const order2[] = {silence, silence, silence};
+static const unsigned char* const order3[] = {silence, silence, silence};
+static const unsigned char* const order4[] = {silence, silence, silence};
 
 // Instruments for channels 1 and 2, which make a plain beep called a square
 // wave. The fields are: pitch sweep (8 is off), wave shape (128 is an even

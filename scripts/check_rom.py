@@ -63,9 +63,10 @@ MIN_DIFFERENT_NOTES = 3
 # This many frames either way, a thirtieth of a second, still counts.
 MAX_GAP_FRAMES = 2
 # The same pitch played twice in a row still starts a new note. Each note
-# starts loud and fades, so a jump in loudness of at least this much, out of
-# 15, marks the second one.
-LOUDNESS_JUMP = 4
+# starts at full loudness, 15, and only ever fades, so any rise in loudness
+# marks the second one. A rise of 2 is asked for, to ignore a wobble of 1;
+# two notes a third of a second apart differ by 3.
+LOUDNESS_JUMP = 2
 
 # The game's timing windows, in frames either side of a note landing: a
 # press this close is a perfect, or a good. The same two numbers are in

@@ -98,7 +98,7 @@ This converts each image in `assets/` to C (see "Adding or changing an image" be
 make check
 ```
 
-This builds the ROM if needed and plays it in PyBoy with no window. The emulator runs much faster than a real Game Boy, so the whole check takes about five seconds.
+This builds the ROM if needed and plays it in PyBoy with no window. The emulator runs much faster than a real Game Boy, so the whole check takes about six seconds.
 
 **First it presses Start and lets the song play twice**, with no other presses. It waits a second and a half before the first Start, leaves the results showing for ten seconds, then presses Start again. In every frame it records what is on the screen and what sound was made. Afterwards it:
 
@@ -137,7 +137,7 @@ It prints `FAIL` and exits non-zero, saying which, if:
 - a note landed more than two frames, a thirtieth of a second, before or after its sound;
 - a note landed on the wrong marker for its pitch, for example `note 2 (G4) landed on assets/lane_2_up.png, but its pitch G belongs on assets/lane_3_right.png`;
 - a falling note did not move the same distance every frame, which is what would happen if the game ran too slowly to keep up;
-- any way of pressing gave the wrong counts, for example `with presses 4 frames late, the 16 notes should score 0 perfect, 16 good, 0 miss but the screen shows 16 perfect, 0 good, 0 miss`.
+- any way of pressing gave the wrong counts, for example `with presses 4 frames late, the 35 notes should score 0 perfect, 35 good, 0 miss but the screen shows 35 perfect, 0 good, 0 miss`.
 
 The check knows neither the tune nor where anything is drawn. It finds everything by looking for the PNGs on the screen, reads the counts by matching digits, and gets the notes from the sound. So after you edit the song, an image, or the layout, there is nothing else to update. What it is told is the game's design, on purpose, so that a ROM which departs from it fails: which pitch belongs to which button and marker, in the `Makefile` as `CHECK_ARGS`, and the two timing windows, at the top of `scripts/check_rom.py`.
 
@@ -255,7 +255,7 @@ An image must fit what the original Game Boy can show:
 
 If an image breaks the first two rules, `make` stops and prints an error. The converter itself exits successfully even when it reports an error, and it accepts a fifth shade without complaint when that shade sits in a tile of its own, so `scripts/convert-images.sh` checks its output for both. The converter's full output is kept in `build/NAME.c.log`.
 
-**Several images.** Background tiles are numbered 0 to 255. The text font uses the lower half, so images share numbers 128 to 255: 128 tiles between them. The build hands these out for you. `scripts/convert-images.sh` converts the images in alphabetical order and starts each one where the one before ended, so any number of images can be on screen together without overwriting each other, and you never type a tile number. Today there are twelve images using 45 tiles between them: the digits, the falling note, the five lane markers and five words or phrases. The C program reads each image's start from `NAME_TILE_ORIGIN`.
+**Several images.** Background tiles are numbered 0 to 255. The lower half is kept for the Game Boy's built-in text font, which this game no longer uses, so images share numbers 128 to 255: 128 tiles between them. The build hands these out for you. `scripts/convert-images.sh` converts the images in alphabetical order and starts each one where the one before ended, so any number of images can be on screen together without overwriting each other, and you never type a tile number. Today there are twelve images using 45 tiles between them: the digits, the falling note, the five lane markers and five words or phrases. The C program reads each image's start from `NAME_TILE_ORIGIN`.
 
 Because the numbers depend on the images before, changing any PNG reconverts all of them. Two things stop the build with a message:
 
@@ -284,7 +284,7 @@ In `src/game.c` the mapping is the table `lane_of_pitch`, with one entry for eac
 
 **Background and sprites.** The Game Boy draws two kinds of picture. The background is a grid of tiles that stays put: the markers, words and counts are background. A sprite is a single small picture that can be placed anywhere, pixel by pixel, on top of the background: each falling note is a sprite. Sprites can use the same tiles as background images, so the falling note comes from a PNG in `assets/` like any other image. Wherever the PNG is white, a sprite is see-through.
 
-**Where the notes come from.** There is no list of falling notes. The game reads the song itself, the same rows in `src/song.c` that the music driver plays, and drops a note from the top whenever a row starts one. A row that uses the silent instrument is a rest and drops nothing. When the song's second pattern ends early with its pattern-break effect, the reader follows it, just as the driver does.
+**Where the notes come from.** There is no list of falling notes. The game reads the song itself, the same rows in `src/song.c` that the music driver plays, and drops a note from the top whenever a row starts one. A row that uses the silent instrument is a rest and drops nothing. If a pattern ends early with the pattern-break effect, the reader follows it, just as the driver does.
 
 **How they arrive in time.** A note needs time to fall, so the game cannot wait until it hears the note. Instead the reader gets a head start: it begins reading the song one second before the music begins. A note is dropped when the reader reaches its row, falls for exactly one second, and lands as the music reaches the same row. That one second is `LEAD_FRAMES` in `src/game.c`, 60 frames, and a note falls 2 pixels every frame. It starts just above the top edge of the screen, out of sight.
 
@@ -355,20 +355,29 @@ A program makes a note by writing a pitch and a volume to a channel. Nothing pla
 
 - A **pattern** is 64 rows. Each row is `DN(note, instrument, effect)`. A note is a name such as `G_5`, or `___` to leave the channel as it is, so a note keeps sounding until another replaces it. The driver steps through the rows one at a time.
 - Each channel plays its own pattern, and the four are stepped through together. Here channel 1 plays `melody` and the other three play `silence`, a pattern of empty rows.
-- The **order** lists which pattern each channel plays at each step of the song. This song has two steps, `melody_1` then `melody_2`, and then starts again.
-- An **effect** on a row changes how the song plays. The only one used here is `D01`, pattern break, on the last row the second pattern needs: a pattern is always 64 rows, and this skips the ones left over.
+- The **order** lists which pattern each channel plays at each step of the song. This song has three steps: `melody_1`, `melody_2`, `melody_3`.
+- An **effect** on a row changes how the song plays. None is used in this song. One worth knowing is `D01`, pattern break, which ends a pattern early: a pattern is always 64 rows, and this skips the ones a tune does not need. The falling notes follow it correctly.
 - An **instrument** says how a note sounds: its starting volume, how it fades, and its wave shape. Instrument 1 starts at full volume and fades slowly. A row cannot say "stop", so instrument 2, which has no volume, is used as a rest.
 - The **tempo** is how many frames each row lasts. At 10, a row is a sixth of a second.
 
-**Reading the melody.** "Amazing Grace" has three beats to the bar. In this file one beat is four rows, so a half note is eight rows and an eighth note is two. The song is the first half of the verse. "Amazing grace, how sweet the sound" is D G B G B A G E D, and "that saved a wretch like me" is D G B G B A and then the D an octave higher. The first pattern holds everything up to "a" and is exactly full; the second holds "wretch like me" and a one-beat rest, then breaks back to the start.
+**Reading the melody.** "Amazing Grace" has three beats to the bar. In this file one beat is four rows, so a half note is eight rows, an eighth note is two, and a dotted quarter note is six. The song is the whole first verse, 35 notes in 192 rows, which is three patterns exactly:
 
-Two neighbouring notes in the tune are the same: "sound" and "that" are both D. On the Game Boy you hear the second one start, because each note begins at full volume and fades. The headless check reports them as one D, because it only sees the pitch.
+| Words | Notes |
+|---|---|
+| Amazing grace, how sweet the sound, | D G B G B A G E D |
+| that saved a wretch like me. | D G B G B A D (the D above) |
+| I once was lost, but now am found, | B D B D B G D E G G E D (the first two Ds are the D above) |
+| was blind but now I see. | D G B G B A G |
+
+Where a word is sung on two notes, such as "-zing" and "once", both are in the file. A note still sounding when a pattern ends carries on into the next, as "now" does between the second and third.
+
+In four places two neighbouring notes are the same pitch, for example "sound" and "that", both D. On the Game Boy you hear the second one start, because each note begins at full volume and fades. The headless check counts them as two notes, by the jump in loudness, but its printed list of notes heard shows each such pair once.
 
 One trap: the driver names octaves one higher than usual. Its `D_5` sounds as the D just above middle C, which most music, and the headless check, calls D4.
 
 **Changing the tune.** Edit a note name in `src/song.c` and run `make check`. The check prints the notes it heard, so the change shows up there without anyone listening: changing `E_5` to `Fs5` turns `... G4 E4 D4` into `... G4 F#4 D4`. To change the speed, change the tempo number at the bottom of the file. To hear it, run `make run`.
 
-**What is not here yet.** One channel, half a verse, no drums and no sound effects.
+**What is not here yet.** One channel, one verse, no drums and no sound effects.
 
 ## Everyday commands
 
@@ -391,7 +400,7 @@ Once the tools are installed, these are all you need. Run them from the reposito
 | `assets/` | PNG images shown by the ROM: the lane markers, the falling note, the words and the digits | yes |
 | `Makefile` | Build and check commands | yes |
 | `src/game.c` | The game: waiting for Start, the lanes, the falling notes, judging, the counts and the results | yes |
-| `src/song.c` | The song, the first half of a verse of "Amazing Grace", as a table of notes | yes |
+| `src/song.c` | The song, the first verse of "Amazing Grace", as a table of notes | yes |
 | `scripts/check_rom.py` | The headless check | yes |
 | `scripts/convert-images.sh` | Converts the images to C and hands out their tile numbers | yes |
 | `scripts/java-host.sh` | Starts Java on the host so it can open a window | yes |
@@ -418,6 +427,6 @@ These questions were open when the work was planned. These are the answers, foun
 
 **Does the game fit in 32K, and can it keep up at 60 frames a second?** Yes to both, so far. Found on 2026-10-05 with the song's notes falling in one lane: `tools/gbdk/bin/romusage build/gbrythm.gb` reports 6,921 bytes used of 32,768, about a fifth. For speed, the headless check follows every falling note for 1,500 frames and each one moved exactly 2 pixels in every frame; a game that fell behind would show a note standing still and then jumping, and when that was forced on purpose the check caught it. This is measured in the PyBoy emulator, not on a real Game Boy, and with no judging yet. With five lanes the figures were 7,357 bytes and the same steady 2 pixels. With judging added, and the built-in text routines no longer used, it is 5,641 bytes; notes still move steadily while judgements and counts are being drawn.
 
-**Do the notes land in time?** Yes. All 23 notes in the check's run landed in the same frame their sound started.
+**Do the notes land in time?** Yes. With the whole verse, all 35 notes in each of the check's two plays land within one frame of their sound starting.
 
 One question is still open: whether PyBoy's picture matches Emulicious's closely enough to trust the headless check. It is a parked ticket in `_bmad-output/backlog/`.
