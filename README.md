@@ -25,3 +25,7 @@ Then, from the repository root:
 - `scripts/` — the headless check, the image converter's wrapper, and a helper that starts Java
 - `docs/setup.md` — installing the tools, with the reason for each step, and how the images and the music work
 - `_bmad-output/` — specs, plans and tickets
+
+## Licence
+
+The project's code is under the [MIT licence](LICENSE). The ROM also contains library code from GBDK-2020 and hUGEDriver; `docs/setup.md`, under "What was found", says what their terms are.

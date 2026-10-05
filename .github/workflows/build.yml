@@ -1,4 +1,5 @@
-# Builds the game and checks it on every push to main.
+# Builds the game and checks it on every push to main, and publishes a
+# release when a version tag such as v0.1.0 is pushed.
 #
 # The tools are installed by running the commands in docs/setup.md as they
 # are written there, through scripts/run-setup-steps.py. There is no second
@@ -10,8 +11,9 @@ name: Build and check
 on:
   push:
     branches: [main]
+    tags: ["v[0-9]*"]
 
-# The job only reads the repository.
+# Jobs only read the repository, unless they say otherwise.
 permissions:
   contents: read
 
@@ -59,3 +61,38 @@ jobs:
             build/gbrythm.gb
             build/screenshot-play.png
           if-no-files-found: ignore
+
+  # Runs only for a version tag, and only after the build job above has
+  # passed. A tag on a commit that fails the check publishes nothing.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    # Creating a release writes to the repository.
+    permissions:
+      contents: write
+    steps:
+      # The ROM the build job kept: the file that passed the checks, not a
+      # second build.
+      - name: Fetch the ROM that passed the checks
+        uses: actions/download-artifact@v8
+        with:
+          name: gbrythm
+
+      # The file has the same name in every release, so the address of the
+      # latest one never changes.
+      - name: Create the release with the ROM attached
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES: |
+            `gbrythm.gb` is the game, a ROM for the original Game Boy. Open it in any Game Boy emulator.
+
+            Press Start to begin. Notes fall in five lanes: press Left, Up, Right, B or A as each one lands.
+
+            This file passed the project's automatic checks in the run that published it. It includes library code from GBDK-2020 (GPL version 2 with a linking exception) and hUGEDriver (public domain).
+        run: |
+          gh release create "$GITHUB_REF_NAME" gbrythm.gb \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "gbRythm $GITHUB_REF_NAME" \
+            --notes "$NOTES"

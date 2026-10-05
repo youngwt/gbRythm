@@ -436,7 +436,8 @@ Once the tools are installed, these are all you need. Run them from the reposito
 | `scripts/check_rom.py` | The headless check, one function for each thing it checks | yes |
 | `scripts/screen.py`, `scripts/sound.py` | The check's helpers for reading the screen and the sound | yes |
 | `scripts/run-setup-steps.py` | Runs the commands of the numbered steps in this document, as written; GitHub uses it | yes |
-| `.github/workflows/build.yml` | Tells GitHub to build and check the game on every push | yes |
+| `.github/workflows/build.yml` | Tells GitHub to build and check the game on every push, and to publish a release when a version tag is pushed | yes |
+| `LICENSE` | The MIT licence: how the project's code may be reused | yes |
 | `scripts/convert-images.sh` | Converts the images to C and hands out their tile numbers | yes |
 | `scripts/java-host.sh` | Starts Java on the host so it can open a window | yes |
 | `.vscode/` | VS Code debug configuration | yes |
@@ -465,5 +466,7 @@ These questions were open when the work was planned. These are the answers, foun
 **Do the notes land in time?** Yes. With the whole verse, all 35 notes in each of the check's two plays land within one frame of their sound starting.
 
 **Does the build and check work on a machine that has never seen the project?** Yes. On 2026-10-05 GitHub followed steps 1 to 5 of this document on a fresh Ubuntu machine, built the ROM and passed both headless checks, in 24 seconds. PyBoy, which until then had only run on the Steam Deck, needed no change. A push with the check broken on purpose failed at step 5, as it should.
+
+**May the ROM be published?** Yes. The ROM contains code from two other projects, and their terms were read on 2026-10-05. GBDK's library, and the compiler's run-time library that comes with it, are under the GPL version 2 with a linking exception, in `tools/gbdk/licenses/LICENSE_GPLV2_LE`: linking the library into a program does not put the program under the GPL. hUGEDriver's README says it is "dedicated to the public domain". The tune, "Amazing Grace", is long out of copyright. The project's own code is under the MIT licence, in `LICENSE`.
 
 One question is still open: whether PyBoy's picture matches Emulicious's closely enough to trust the headless check. It is a parked ticket in `_bmad-output/backlog/`.
