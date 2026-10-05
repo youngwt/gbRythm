@@ -1,6 +1,6 @@
 # gbRythm
 
-A rhythm game for the original Game Boy, written in C with GBDK-2020. So far the repository holds the development environment and a small proof ROM; the game itself is not started.
+A rhythm game for the original Game Boy, written in C with GBDK-2020. So far the repository holds the development environment and the start of the game: the song plays and its notes fall in time, with no buttons or scoring yet.
 
 ## Start here
 
@@ -11,7 +11,7 @@ Then, from the repository root:
 | Command | What it does |
 |---|---|
 | `make` | Builds the ROM, `build/gbrythm.gb` |
-| `make check` | Builds, then runs the ROM with no window and reports `PASS` or `FAIL`; screenshots land in `build/` |
+| `make check` | Builds, then runs the ROM with no window and reports `PASS` or `FAIL`; a screenshot lands in `build/` |
 | `make run` | Builds, then opens the ROM in Emulicious to play |
 | `make clean` | Deletes `build/` |
 

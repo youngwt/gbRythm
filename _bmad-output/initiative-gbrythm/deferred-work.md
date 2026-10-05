@@ -7,3 +7,6 @@
 - source_plan: `_bmad-output/initiative-gbrythm/epic-dev-environment/story-refactor-sweep-plan.md`
   summary: The repository has no `README.md`, `AGENTS.md` or `CLAUDE.md`, so a fresh agent session has nothing at the root pointing it at `docs/setup.md` or the build and check commands.
   evidence: `ls` of the repository root on 2026-10-04 shows none of the three; the spec's success signal is a fresh agent given only the repository building and checking the ROM. Story 6 (rebuild from the instructions alone) is the natural place to add it.
+- source_plan: `_bmad-output/initiative-gbrythm/epic-first-playable/story-the-song-s-notes-fall-in-time-in-one-lane-plan.md`
+  summary: An image with no white pixel is converted with its lightest shade treated as white and the others shifted, and the build does not warn.
+  evidence: Converting a three-shade copy of `assets/falling.png` on 2026-10-05 gave a palette starting at light grey. The converter numbers the shades it finds, lightest first. `docs/setup.md` now tells the reader to include white; the build could instead check for it or pass the converter a fixed palette.

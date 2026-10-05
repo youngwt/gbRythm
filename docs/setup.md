@@ -98,25 +98,32 @@ This converts each image in `assets/` to C (see "Adding or changing an image" be
 make check
 ```
 
-This builds the ROM if needed and runs it in PyBoy with no window. The check:
+This builds the ROM if needed and runs it in PyBoy with no window, for 25 seconds of Game Boy time: long enough for the song to play through and start again. The emulator runs much faster than a real Game Boy, so this takes about two seconds. In every frame the check records what is on the screen and what sound was made. Afterwards it:
 
-1. runs the ROM for 120 frames (about two seconds of Game Boy time) and saves the screen to `build/screenshot-before.png`;
-2. looks for every image in `assets/` on that screen;
-3. taps the A button, runs 60 more frames, and saves the screen to `build/screenshot-after.png`;
-4. compares the two screenshots;
-5. keeps the ROM running to eighteen seconds in all, long enough for the song to play through once, listening the whole time, and works out which notes it played.
+1. finds the marker, `assets/target.png`, on the screen;
+2. works out which notes were played, and the frame each one started;
+3. follows the falling notes, `assets/falling.png`, down the screen above the marker, frame by frame;
+4. compares the frame each note landed on the marker with the frame its sound started.
 
-It prints `PASS` and exits 0 when every image was found, the screen changed, and it heard a tune; the message lists the notes, for example `notes heard: D4 G4 B4 G4 B4 A4 G4 E4 D4 G4 B4 G4 B4 A4 D5`. The emulator runs much faster than a real Game Boy, so those eighteen seconds take about one. It prints `FAIL` and exits non-zero if the ROM is missing, the screen is blank, an image is not on screen, no sound was produced, the sound never changed note, or pressing A changed nothing.
+It prints `PASS` and exits 0 when there is one falling note for every note heard, each landing within two frames of its sound, and every note falls steadily. The message gives the numbers, for example `23 notes fell and 23 were heard, each landing within 0 frame(s) of its sound`, and lists the notes. It saves the screen, five seconds in, to `build/screenshot-play.png`.
 
-Each part proves something different. Comparing before and after proves button input reaches the C program: a ROM that ignores the button fails. Looking for the images proves the route from PNG to screen still works: a ROM that stops drawing an image, or draws the wrong one, fails with `FAIL: assets/NAME.png was not found on screen`. The check reads the PNG itself and searches the whole screen for it, so after you edit an image, or move it, there is nothing else to update. It compares the Game Boy's four shades, not exact colours, because the emulator's greys differ slightly from the PNG's.
+It prints `FAIL` and exits non-zero, saying which, if:
 
-Listening proves the music is playing. A ROM that never starts the music driver, or leaves the sound hardware switched off, fails with `FAIL: no sound was produced`. A ROM that only holds one note, or swaps between two, fails with `FAIL: the sound did not change note enough to be music`: a tune needs at least three different notes.
+- the ROM is missing, the screen is blank, or the marker is not on screen;
+- no sound was produced, or the sound never changed note enough to be a tune (at least three different notes);
+- the number of notes that landed differs from the number heard: a note sounded with nothing falling, or the reverse;
+- a note landed more than two frames, a thirtieth of a second, before or after its sound;
+- a falling note did not move the same distance every frame, which is what would happen if the game ran too slowly to keep up.
 
-Nothing is played out loud. The emulator works out the sound for each frame as a list of numbers, all zero when silent. A plain Game Boy tone switches between off and on at a steady rate, and how fast it switches is the pitch, so the check measures that rate in each frame and names the nearest musical note. It ignores the first second, because the ROM makes a short blip about half a second after starting even with no music. The check does not know which tune to expect; read the notes in its message to see what was played. The note names are the usual ones, where D4 is the D just above middle C.
+The check knows neither the tune nor where anything is drawn. It finds the marker and the falling notes by looking for the two PNGs on the screen, and it gets the notes from the sound. So after you edit the song, an image, or where the lane is, there is nothing else to update: it compares what you would see with what you would hear.
+
+**How it hears.** Nothing is played out loud. The emulator works out the sound for each frame as a list of numbers, all zero when silent. A plain Game Boy tone switches between off and on at a steady rate, and how fast it switches is the pitch, so the check measures that rate in each frame and names the nearest musical note. A new note starts when the pitch changes, when sound follows silence, or when the same pitch suddenly gets louder again. The check ignores the first second, because the ROM makes a short blip about half a second after starting even with no music. The note names are the usual ones, where D4 is the D just above middle C.
+
+**How it sees.** It compares the Game Boy's four shades, not exact colours, because the emulator's greys differ slightly from the PNG's. A falling note is a sprite, and the white parts of a sprite are see-through, so only its other pixels are compared.
 
 PyBoy prints a warning about "SDL2 binaries from pysdl2-dll". It is informational and can be ignored.
 
-Open the two screenshots to see what the ROM drew. Before shows `GBRYTHM` and `PRESS A` with a down arrow and a music note below them, drawn from `assets/arrow.png` and `assets/note.png`; after adds a third line, `A PRESSED`.
+Open the screenshot to see what the ROM drew: the title `GBRYTHM` at the bottom, the marker above it, and notes on their way down.
 
 ## 6. Install Java (to run Emulicious)
 
@@ -193,10 +200,10 @@ code --install-extension emulicious.emulicious-debugger@1.3.0
 
 Then:
 
-1. Open `src/main.c` and click to the left of a line number to set a breakpoint, shown as a red dot. The line `a_was_pressed = 1;` is a good first one: it only runs when A is pressed.
+1. Open `src/game.c` and click to the left of a line number to set a breakpoint, shown as a red dot. The line `falling_active[i] = 1;` is a good first one: it runs each time a note starts to fall.
 2. Press F5.
-3. An Emulicious window opens with the ROM running. Press A in it.
-4. VS Code stops on that line. The Variables panel and hovering over `keys` or `a_was_pressed` show their values. F10 steps to the next line and F5 continues.
+3. An Emulicious window opens with the ROM running. Within a second or two the first note starts to fall.
+4. VS Code stops on that line. The Variables panel and hovering over `read_row` or `row_note` show their values. F10 steps to the next line and F5 continues.
 
 What F5 does is set out in `.vscode/launch.json`, with the build step in `.vscode/tasks.json`:
 
@@ -215,11 +222,12 @@ An image must fit what the original Game Boy can show:
 
 - **Width and height are multiples of 8 pixels**, because the screen is made of 8×8 tiles.
 - **At most four shades.** The original Game Boy has four: white, light grey, dark grey and black. Use `#FFFFFF`, `#AAAAAA`, `#555555` and `#000000`.
+- **Include some white.** The converter numbers the shades it finds from lightest to darkest, so in an image with no white the lightest shade it does have is shown as white, and the rest shift with it. One white pixel is enough.
 - **No larger than the screen**, which is 160×144 pixels.
 
 If an image breaks the first two rules, `make` stops and prints an error. The converter itself exits successfully even when it reports an error, and it accepts a fifth shade without complaint when that shade sits in a tile of its own, so `scripts/convert-images.sh` checks its output for both. The converter's full output is kept in `build/NAME.c.log`.
 
-**Several images.** Background tiles are numbered 0 to 255. The text font uses the lower half, so images share numbers 128 to 255: 128 tiles between them. The build hands these out for you. `scripts/convert-images.sh` converts the images in alphabetical order and starts each one where the one before ended, so any number of images can be on screen together without overwriting each other, and you never type a tile number. The arrow has 11 tiles and gets 128 to 138; the note has 4 and gets 139 to 142. The C program reads each image's start from `NAME_TILE_ORIGIN`.
+**Several images.** Background tiles are numbered 0 to 255. The text font uses the lower half, so images share numbers 128 to 255: 128 tiles between them. The build hands these out for you. `scripts/convert-images.sh` converts the images in alphabetical order and starts each one where the one before ended, so any number of images can be on screen together without overwriting each other, and you never type a tile number. Today there are two images of one tile each: the falling note gets 128 and the marker gets 129. The C program reads each image's start from `NAME_TILE_ORIGIN`.
 
 Because the numbers depend on the images before, changing any PNG reconverts all of them. Two things stop the build with a message:
 
@@ -227,6 +235,22 @@ Because the numbers depend on the images before, changing any PNG reconverts all
 - **An image shares a name with a C source file**, such as `assets/main.png` beside `src/main.c`. Both would compile to the same file in `build/`, so rename the image.
 
 Moving objects, called sprites, use a separate set of tiles and are not covered here.
+
+## How the falling notes work
+
+The play screen is `src/game.c`. A marker sits near the bottom of the screen, and a note falls for each note of the tune, landing on the marker as the note sounds.
+
+**Background and sprites.** The Game Boy draws two kinds of picture. The background is a grid of tiles that stays put: the title and the marker are background. A sprite is a single small picture that can be placed anywhere, pixel by pixel, on top of the background: each falling note is a sprite. Sprites can use the same tiles as background images, so the falling note comes from a PNG in `assets/` like any other image. Wherever the PNG is white, a sprite is see-through.
+
+**Where the notes come from.** There is no list of falling notes. The game reads the song itself, the same rows in `src/song.c` that the music driver plays, and drops a note from the top whenever a row starts one. A row that uses the silent instrument is a rest and drops nothing. When the song's second pattern ends early with its pattern-break effect, the reader follows it, just as the driver does.
+
+**How they arrive in time.** A note needs time to fall, so the game cannot wait until it hears the note. Instead the reader gets a head start: it begins reading the song one second before the music begins. A note is dropped when the reader reaches its row, falls for exactly one second, and lands as the music reaches the same row. That one second is `LEAD_FRAMES` in `src/game.c`, 60 frames, and a note falls 2 pixels every frame.
+
+**One clock.** The Game Boy tells the program each time it finishes drawing a frame, sixty times a second, and the music driver runs on that signal. The game counts the same signal and moves the notes once per count. If the game were ever slow and missed one, it does two steps the next time, so the falling notes cannot slip behind the music.
+
+**Changing it.** Edit the song and the falling notes follow, with nothing else to change; `make check` will report the new count. To make notes fall for longer or faster, change `LEAD_FRAMES` and `FALL_SPEED` together so that one multiplied by the other is still the distance from the top of the screen to the marker, 120 pixels.
+
+**What is not here yet.** One lane, no buttons, no judging, and the song simply repeats.
 
 ## How the music works
 
@@ -281,8 +305,9 @@ Once the tools are installed, these are all you need. Run them from the reposito
 | Path | What it is | In git? |
 |---|---|---|
 | `src/` | C source for the ROM | yes |
-| `assets/` | PNG images shown by the ROM | yes |
+| `assets/` | PNG images shown by the ROM: the marker and the falling note | yes |
 | `Makefile` | Build and check commands | yes |
+| `src/game.c` | The play screen: the marker and the falling notes | yes |
 | `src/song.c` | The song, the first half of a verse of "Amazing Grace", as a table of notes | yes |
 | `scripts/check_rom.py` | The headless check | yes |
 | `scripts/convert-images.sh` | Converts the images to C and hands out their tile numbers | yes |
@@ -307,5 +332,9 @@ These questions were open when the work was planned. These are the answers, foun
 **Does hUGEDriver's ready-built library work with GBDK 4.5.0?** Yes. The worry was that release 6.1.3 was built in 2024 against GBDK 4.1.1, three versions older than the one used here. Found on 2026-10-04: the driver's own example program and song compile and link against the library with GBDK 4.5.0 with no errors or warnings, and run in PyBoy producing sound in 185 of the first 240 frames. The proof ROM then linked the same library and plays its own song. Nothing had to be rebuilt, so the driver's source and the RGBDS assembler it needs are not installed.
 
 **Can PyBoy hear sound?** Yes. With sound emulation switched on it exposes each frame's sound as numbers, which is what the headless check reads. Whether what it produces matches a real Game Boy has not been compared.
+
+**Does the game fit in 32K, and can it keep up at 60 frames a second?** Yes to both, so far. Found on 2026-10-05 with the song's notes falling in one lane: `tools/gbdk/bin/romusage build/gbrythm.gb` reports 6,921 bytes used of 32,768, about a fifth. For speed, the headless check follows every falling note for 1,500 frames and each one moved exactly 2 pixels in every frame; a game that fell behind would show a note standing still and then jumping, and when that was forced on purpose the check caught it. This is measured in the PyBoy emulator, not on a real Game Boy, and with one lane and no judging yet.
+
+**Do the notes land in time?** Yes. All 23 notes in the check's run landed in the same frame their sound started.
 
 One question is still open: whether PyBoy's picture matches Emulicious's closely enough to trust the headless check. It is a parked ticket in `_bmad-output/backlog/`.

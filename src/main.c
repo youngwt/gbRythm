@@ -1,60 +1,39 @@
 #include <gb/gb.h>
 #include <stdint.h>
-#include <stdio.h>
 
-#include "arrow.h"
-#include "note.h"
-#include "song.h"
+#include "game.h"
 
-// Where each image goes on the background, in tiles from the top left.
-#define ARROW_X 8
-#define ARROW_Y 6
-#define NOTE_X 14
-#define NOTE_Y 7
+// The game's clock. frame_count goes up once every frame, on the vertical
+// blank interrupt, whatever the main loop is doing. frames_done is how many
+// of those frames the game has dealt with.
+volatile uint8_t frame_count;
+uint8_t frames_done;
 
-uint8_t keys;
-uint8_t a_was_pressed;
+void count_frame(void)
+{
+    frame_count++;
+}
 
 void main(void)
 {
-    a_was_pressed = 0;
+    game_init();
 
-    printf("GBRYTHM\nPRESS A");
-
-    // Show the image converted from assets/arrow.png: load its tiles into
-    // video memory, then place them on the background. Sizes are in tiles,
-    // so pixels >> 3.
-    set_bkg_data(arrow_TILE_ORIGIN, arrow_TILE_COUNT, arrow_tiles);
-    set_bkg_tiles(ARROW_X, ARROW_Y, arrow_WIDTH >> 3, arrow_HEIGHT >> 3, arrow_map);
-
-    // A second image, from assets/note.png. The build gave its tiles the
-    // numbers after the arrow's, so both can be on screen together.
-    set_bkg_data(note_TILE_ORIGIN, note_TILE_COUNT, note_tiles);
-    set_bkg_tiles(NOTE_X, NOTE_Y, note_WIDTH >> 3, note_HEIGHT >> 3, note_map);
-
-    // Start the music. The three registers switch the sound hardware on,
-    // send every channel to both speakers, and set the volume to full. The
-    // driver is then given the song and asked to run once per frame, on the
-    // vertical blank interrupt; it plays the next step each time. __critical
-    // holds interrupts off while that is set up.
-    NR52_REG = 0x80;
-    NR51_REG = 0xFF;
-    NR50_REG = 0x77;
+    frames_done = 0;
     __critical {
-        hUGE_init(&proof_song);
-        add_VBL(hUGE_dosound);
+        frame_count = 0;
+        add_VBL(count_frame);
     }
 
     while (1) {
-        // Read the buttons once per frame.
-        keys = joypad();
-
-        if ((keys & J_A) && !a_was_pressed) {
-            a_was_pressed = 1;
-            printf("\nA PRESSED");
-        }
-
         // Idle until the next vertical blank instead of spinning the CPU.
         vsync();
+
+        // Normally this runs once. If the game ever took longer than a
+        // frame, it runs again to catch up, so the falling notes stay in
+        // step with the music, which never waits.
+        while (frames_done != frame_count) {
+            game_tick();
+            frames_done++;
+        }
     }
 }

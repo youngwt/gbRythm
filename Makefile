@@ -72,9 +72,10 @@ endif
 $(BUILD_DIR):
 	mkdir -p $@
 
-# The images are passed so the check can confirm each one is on screen.
+# The check is given the marker and falling-note images so it can find them
+# on the screen.
 check: $(ROM) | require-python
-	$(PYTHON) scripts/check_rom.py $(ROM) $(BUILD_DIR) $(ASSETS)
+	$(PYTHON) scripts/check_rom.py $(ROM) $(BUILD_DIR) assets/target.png assets/falling.png
 
 # Build a second ROM for the debugger in build/debug, leaving the normal ROM
 # alone. -debug writes the .cdb file that maps machine code back to C lines.
