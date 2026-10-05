@@ -3,7 +3,7 @@ title: 'The song is the full first verse'
 type: 'feature'
 ticket: '5'
 created: '2026-10-05'
-status: 'built'
+status: done
 baseline_revision: 'e7c2f3077b0b849e51f80fe0e792a5bc74c75b76'
 route: 'oneshot'
 route_source: 'auto'
@@ -43,6 +43,7 @@ Verified:
 - `make check` and `make check-debug`, no display: PASS. 35 notes fell and were heard in each of two plays, in lane, steady, within one frame; results 35 misses; second play from zero; all twelve press scenarios as designed, including the window edges on notes a third of a second apart.
 - Notes heard, with repeated pitches shown once: D4 G4 B4 G4 B4 A4 G4 E4 D4 G4 B4 G4 B4 A4 D5 B4 D5 B4 D5 B4 G4 D4 E4 G4 E4 D4 G4 B4 G4 B4 A4 G4, which is the file as written.
 - Outstanding: the user listening and recognising the whole verse. This is the story's human step.
+- 2026-10-05, later: the user listened and replied "its good".
 
 ## Review Triage Log
 
