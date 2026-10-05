@@ -3,7 +3,7 @@ title: 'The latest release plays in a browser'
 type: 'feature'
 ticket: '4'
 created: '2026-10-05'
-status: 'built'
+status: done
 baseline_revision: '4e937223b266c4a60b687451f71de98689ba2671'
 route: 'full'
 route_source: 'auto'
@@ -120,6 +120,14 @@ Not verified: anything on GitHub, any browser but Chromium, and how it sounds. O
 4. Push `v0.1.1`. A release should appear, then the page at `https://youngwt.github.io/gbRythm/`, naming v0.1.1.
 5. Play the page with sound.
 6. Optionally, push a tag on a broken commit, as in entry 2; the page should still name v0.1.1.
+
+On GitHub, 2026-10-06, read from its public API and from the page itself:
+
+- Push to main, commit `3f5b813`: run 37386920911 passed and published nothing.
+- Tag `v0.1.1` on the same commit: run 37387200776 passed. Release `v0.1.1` exists with `gbrythm.gb`, 32,768 bytes.
+- `https://youngwt.github.io/gbRythm/` names v0.1.1. Its `gbrythm.gb` has SHA-256 `2f12b737…c092f9`, the release asset's digest. Its `play.js` is identical to `web/play.js`; binjgb's two files and its licence are served at their expected sizes.
+- The user reported "that's now in the browser". They did not say how it sounds, or which browser.
+- Not done: the optional broken tag (step 6). That a failed check stops the release was shown in entry 2, and the `page` job runs only after the `release` job; it was not shown again with a page in place.
 
 ## Plan Change Log
 

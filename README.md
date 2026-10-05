@@ -2,6 +2,8 @@
 
 A rhythm game for the original Game Boy, written in C with GBDK-2020. So far the repository holds the development environment and the start of the game: press Start and the song plays once, its notes fall in five lanes, presses are judged perfect, good or miss, and the results follow.
 
+**[Play it in your browser](https://youngwt.github.io/gbRythm/)** (needs a keyboard), or **[download the latest release](https://github.com/youngwt/gbRythm/releases/latest)** and open `gbrythm.gb` in any Game Boy emulator.
+
 ## Start here
 
 Follow [docs/setup.md](docs/setup.md) once to install the tools. The same document explains how to play and how each part of the game works. They go into `tools/`, a folder git ignores, so a fresh checkout has none.
