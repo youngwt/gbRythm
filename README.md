@@ -4,7 +4,7 @@ A rhythm game for the original Game Boy, written in C with GBDK-2020. So far the
 
 ## Start here
 
-Follow [docs/setup.md](docs/setup.md) once to install the tools. They go into `tools/`, a folder git ignores, so a fresh checkout has none.
+Follow [docs/setup.md](docs/setup.md) once to install the tools. The same document explains how to play and how each part of the game works. They go into `tools/`, a folder git ignores, so a fresh checkout has none.
 
 Then, from the repository root:
 

@@ -14,4 +14,5 @@ How melody notes map to lanes and buttons in SPEC-first-playable. The user's des
 - Names collide: the note A is played with the B button, and the note B with the A button. Say "the note A" or "the B button", never a bare letter.
 - The first verse of "Amazing Grace" uses only these five pitches. A song with other pitches is outside this spec.
 - The driver names octaves one higher than usual: its `D_5` sounds as D4.
-- Down, Select and Start are not lanes. Start begins and restarts the song.
+- Down, Select and Start are not lanes. Start begins a play, and begins another from the results; during a play it does nothing.
+- A note whose pitch is not in the table has no lane and nothing falls for it; the headless check then fails, reporting a note heard with nothing falling.

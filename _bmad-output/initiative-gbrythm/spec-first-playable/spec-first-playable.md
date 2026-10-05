@@ -22,19 +22,19 @@ A vision to realize, and something to learn. Everything so far proved tools; thi
   - **success:** Across the whole song every melody note has exactly one falling note, in the lane `lane-mapping.md` gives, arriving at the line within two frames of the note sounding.
 - **CAP-2**
   - **intent:** The player presses a lane's button as its note arrives and is judged on timing.
-  - **success:** A press is graded perfect or good by how close it is to the note's arrival; a note not pressed in time is a miss; each judgement is shown on screen as it happens. A press with no note near in that lane changes nothing.
+  - **success:** A press within 3 frames of the note landing, early or late, is perfect; within 7 frames is good; a note not pressed by then is a miss; each judgement is shown on screen as it happens. A press with no note near in that lane changes nothing.
 - **CAP-3**
   - **intent:** When the song ends the player sees how they did and can play again.
-  - **success:** A results screen shows the counts of perfects, goods and misses, they add up to the number of notes in the song, and pressing Start plays the song again from the beginning with the counts reset.
+  - **success:** When the song ends the music stops and the counts of perfects, goods and misses are shown under a results heading; they add up to the number of notes in the song; pressing Start plays the song again from the beginning with the counts cleared.
 - **CAP-4**
   - **intent:** The song is the full first verse of "Amazing Grace".
   - **success:** The ROM plays the verse from "Amazing grace" to "but now I see", and the user recognises it.
 - **CAP-5**
   - **intent:** An agent can check the game without a display by playing it with scripted presses.
-  - **success:** The headless check plays the song three ways and passes only when presses timed on each note score all perfects, no presses score all misses, presses made a little late score goods, and presses with no note near leave the counts unchanged.
+  - **success:** The headless check plays the song with scripted presses and passes only when presses on time score all perfects, no presses score all misses, presses at the edge of each window score as that window says, stray and held presses change nothing, Start mid-song changes nothing, and two plays in a row each score from zero. It passes on the debug build as well.
 - **CAP-6**
   - **intent:** The timing windows are tuned so judgements feel fair.
-  - **success:** The user plays the song in Emulicious and says the judgements match what they expected of their own timing.
+  - **success:** The user plays the song and says the judgements match what they expected of their own timing.
 - **CAP-7**
   - **intent:** The instructions explain how the game plays and how notes map to lanes.
   - **success:** After removing the installed tools, following the instructions alone gets the headless check passing again, and a reader learns from them the lanes, the judging and how the notes follow the song.
@@ -44,11 +44,16 @@ A vision to realize, and something to learn. Everything so far proved tools; thi
 - Inherits the dev-environment and music-proof contracts: GBDK-2020 4.5.0, C, the original Game Boy, hUGEDriver 6.1.3, tools in `tools/`, a command-line build and check with no window, and the C rules in `stack.md`.
 - Falling notes are derived from the song's own data, never from a second copy of the tune, so the notes and the music cannot drift apart when the song is edited.
 - Five lanes in the fixed order Left, Up, Right, B, A. A pitch maps to the same lane in every octave. The table is in `lane-mapping.md`.
+- The game waits for Start, plays the song once, and shows the results until Start is pressed again. Start during a play does nothing; lane buttons do nothing while waiting or on the results.
 - The player cannot fail: the song always plays through, and misses are only counted.
 - Stray presses are ignored. A press when no note is near in that lane, including a press of the wrong lane's button, does nothing and is not a miss.
+- A press counts once, on the frame the button goes down, and is judged against what the player sees on screen.
+- The music keeps time from the frame signal and stops after exactly as many steps as the song has, so its timing does not depend on how fast the game's code runs.
+- The lanes and the two timing windows are stated twice, once in the game and once for the headless check, so the check can catch the game departing from them. Nothing else about the game is copied into the check.
 - The melody stays a single line on one sound channel, so the headless check can still name the notes it hears.
+- Every image uses all four Game Boy shades; the build fails otherwise.
 - The ROM stays 32K or smaller with no mapper.
-- The headless check and the user's play in Emulicious are both required. The user's play is the only human step.
+- The headless check, on both the normal and the debug build, and the user's play are all required. The user's play is the only human step.
 
 ## Non-goals
 
@@ -63,20 +68,11 @@ A vision to realize, and something to learn. Everything so far proved tools; thi
 
 ## Success signal
 
-- The user plays the song through in Emulicious: the notes arrive in time with the music, presses are judged as expected, and the results appear. Separately, `make check` plays it with no window: presses timed on each note score all perfects, and no presses score all misses.
+- The user plays the song through: the notes arrive in time with the music, presses are judged as expected, and the results appear. Separately, `make check` plays it with no window: presses timed on each note score all perfects, and no presses score all misses.
 
 ## Assumptions
 
-- The game replaces the proof ROM's current screen. The image route and the headless check are reused, with the check's expectations rewritten for the game.
-- The game waits for Start before the song begins.
-- Notes fall from the top to a target line near the bottom of the screen.
-- "Within two frames" in CAP-1 is the agent's figure for in time.
-- Graphics are simple placeholders made by the agent.
+- Timing and speed are measured in the PyBoy emulator and by the user's play in two other emulators. Nothing has run on a real Game Boy.
+- The quick pairs of notes, a third of a second apart, are playable: the user said the timing is good enough and did not single them out.
+- The graphics are simple placeholders made by the agent.
 - The non-goals were proposed by the agent and have not been confirmed one by one.
-
-## Open Questions
-
-- How wide are the perfect and good windows to start with? CAP-6 tunes them by play, but the build needs starting values.
-- Does the game fit in 32K with the driver, the verse and the graphics? If not, is a mapper acceptable?
-- Is C fast enough for five lanes of falling notes with judged input at 60 frames a second? The research flagged this as unmeasured.
-- The tune has two eighth notes a third of a second apart. Is that playable at the current tempo, or should the tempo drop?

@@ -1,6 +1,8 @@
-# Setting up the gbRythm development environment
+# Setting up and understanding gbRythm
 
-These steps take a fresh checkout to a built Game Boy ROM and screenshots of it running, and then to playing and debugging it in an emulator. Run every command from the repository root.
+gbRythm is a rhythm game for the original Game Boy: a song plays, a note falls for each note of the tune, and you press the matching button as it lands.
+
+This document does two jobs. Steps 1 to 9 take a fresh checkout to a built ROM, an automatic check of it, and playing and debugging it in an emulator. The sections after them explain how the game works, for someone new to the Game Boy: start with "How to play". Run every command from the repository root.
 
 Everything is installed into `tools/`, a folder inside the repository that git ignores. Nothing is installed system-wide, because SteamOS keeps its system partition read-only and wipes changes to it on OS updates. To start again, delete `tools/` and repeat these steps. The one thing you lose is `tools/emulicious/Emulicious.ini`, where Emulicious keeps its settings such as key bindings; copy it out first if you have changed them.
 
@@ -111,7 +113,7 @@ This builds the ROM if needed and plays it in PyBoy with no window. The emulator
 7. reads the counts off the results, which with no presses must be every note a miss;
 8. confirms the second Start cleared the counts and that the second play had the same notes and the same results.
 
-**Then it plays the song twelve more times with scripted button presses**, pressing Start first each time, and reads the PERFECT, GOOD and MISS counts off the results:
+**Then it plays the song thirteen more times with scripted button presses**, pressing Start first each time, and reads the PERFECT, GOOD and MISS counts off the results:
 
 | Presses | Every note should be |
 |---|---|
@@ -123,6 +125,7 @@ This builds the ROM if needed and plays it in PyBoy with no window. The emulator
 | every lane button held down throughout | a miss |
 | on time, with Start pressed again in the middle of the song | perfect: Start changes nothing |
 | lane buttons only before Start and on the results | a miss: they change nothing |
+| on time, in two plays one after the other | perfect, in both plays |
 
 It prints `PASS` and exits 0 when all of that holds. The message gives the numbers and lists the notes heard. It saves the screen, five seconds in, to `build/screenshot-play.png`.
 
@@ -239,6 +242,33 @@ What F5 does is set out in `.vscode/launch.json`, with the build step in `.vscod
 - It then starts Emulicious through `scripts/java-host.sh`, for the reason given in step 8, and connects to it on port 58870.
 
 The extension tries to connect every tenth of a second and by default gives up after 25 tries, which a slow start of Java can exceed. `.vscode/settings.json` raises that to 100, about ten seconds. If F5 still reports that it could not connect, press F5 again.
+
+## How to play
+
+Open the ROM with `make run`, or in any Game Boy emulator: the file is `build/gbrythm.gb`.
+
+1. The screen shows `PRESS START`. Press Start.
+2. The first verse of "Amazing Grace" plays. For each note of the tune a note falls down one of five lanes. Each lane ends in a marker showing its button:
+
+   | Lane | Marker | Button |
+   |---|---|---|
+   | 1 | left arrow | Left |
+   | 2 | up arrow | Up |
+   | 3 | right arrow | Right |
+   | 4 | B | B |
+   | 5 | A | A |
+
+3. Press a lane's button as its note lands on the marker, which is the moment you hear it. The word under the markers tells you how you did: `PERFECT`, `GOOD`, or `MISS` if the note got past you. The three counts below keep score.
+4. The song lasts about half a minute and has 35 notes. When it ends, `RESULTS` appears and your counts stay on screen. Press Start to play again.
+
+Things worth knowing as a player:
+
+- The lanes follow the tune's pitch: the lowest note is on the left and the highest on the right, so the notes move across the lanes the way the melody rises and falls.
+- You cannot fail, and there is no penalty for pressing when no note is near.
+- The Down and Select buttons do nothing.
+- If everything suddenly runs many times too fast in Emulicious, see the note on turbo under step 8.
+
+The sections below explain how each part works and where to change it: "How the falling notes work", "How judging works", "How a play starts and ends", and "How the music works".
 
 ## Adding or changing an image
 
@@ -426,7 +456,7 @@ These questions were open when the work was planned. These are the answers, foun
 
 **Can PyBoy hear sound?** Yes. With sound emulation switched on it exposes each frame's sound as numbers, which is what the headless check reads. Whether what it produces matches a real Game Boy has not been compared.
 
-**Does the game fit in 32K, and can it keep up at 60 frames a second?** Yes to both, so far. Found on 2026-10-05 with the song's notes falling in one lane: `tools/gbdk/bin/romusage build/gbrythm.gb` reports 6,921 bytes used of 32,768, about a fifth. For speed, the headless check follows every falling note for 1,500 frames and each one moved exactly 2 pixels in every frame; a game that fell behind would show a note standing still and then jumping, and when that was forced on purpose the check caught it. This is measured in the PyBoy emulator, not on a real Game Boy, and with no judging yet. With five lanes the figures were 7,357 bytes and the same steady 2 pixels. With judging added, and the built-in text routines no longer used, it is 5,641 bytes; notes still move steadily while judgements and counts are being drawn.
+**Does the game fit in 32K, and can it keep up at 60 frames a second?** Yes to both, so far. Found on 2026-10-05 with the song's notes falling in one lane: `tools/gbdk/bin/romusage build/gbrythm.gb` reports 6,921 bytes used of 32,768, about a fifth. For speed, the headless check follows every falling note for 1,500 frames and each one moved exactly 2 pixels in every frame; a game that fell behind would show a note standing still and then jumping, and when that was forced on purpose the check caught it. This is measured in the PyBoy emulator, not on a real Game Boy, and with no judging yet. With five lanes the figures were 7,357 bytes and the same steady 2 pixels. With judging added, and the built-in text routines no longer used, it was 5,641 bytes; notes still move steadily while judgements and counts are being drawn. The finished first playable, with the whole verse, Start and the results, is 6,531 bytes, about a fifth of the space.
 
 **Do the notes land in time?** Yes. With the whole verse, all 35 notes in each of the check's two plays land within one frame of their sound starting.
 
