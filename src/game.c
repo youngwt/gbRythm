@@ -86,7 +86,7 @@ static const uint8_t lane_of_pitch[PITCHES_PER_OCTAVE] = {
 // further and the press is ignored. A note that gets GOOD_FRAMES past its
 // marker without a press is a miss. Notes move at a steady speed, so the
 // game measures these as distances from the marker.
-#define PERFECT_FRAMES 4
+#define PERFECT_FRAMES 3
 #define GOOD_FRAMES 7
 #define PERFECT_PIXELS (PERFECT_FRAMES * FALL_SPEED)
 #define GOOD_PIXELS (GOOD_FRAMES * FALL_SPEED)

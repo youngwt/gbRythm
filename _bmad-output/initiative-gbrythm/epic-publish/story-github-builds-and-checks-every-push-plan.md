@@ -3,7 +3,7 @@ title: 'GitHub builds and checks every push'
 type: 'feature'
 ticket: '1'
 created: '2026-10-05'
-status: 'built'
+status: done
 baseline_revision: 'a4ce19d3b31f1fba41ffdbe8362e7050480d4492'
 route: 'oneshot'
 route_source: 'auto'
@@ -51,6 +51,13 @@ Not yet verified, and the point of the story: that it runs on GitHub. Outstandin
 1. The user commits and pushes; the result is read from GitHub.
 2. A deliberately broken check is pushed to show a failure naming its step.
 3. The break is put right and pushed.
+
+On GitHub, 2026-10-05:
+
+- First push, commit `0bda12f`: run 37379446260 succeeded in 24 seconds. Every step passed: `uv`, steps 1 to 5 of `docs/setup.md`, the debug check, and the kept artifact (5,439 bytes). The headless check runs on GitHub's machine with no change, which answers the epic's open question.
+- Deliberate break, commit `d8c9152` (the perfect window widened to 4 frames): run 37379666061 failed at "docs/setup.md step 5: run the headless check". The debug check was skipped and the artifact step still ran. The step results were read from GitHub's public API; the log text needs a signed-in account and was not read, so that the failure carries the check's own message is known from the local run, not from GitHub.
+- The commit that carried the break was pushed under the first commit's subject, "ci: build and check on every push", so the log shows that subject twice.
+- The repair restores the window to 3 frames and is the story's last push; its result is read after the user pushes it.
 
 ## Review Triage Log
 

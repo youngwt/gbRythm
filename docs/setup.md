@@ -464,4 +464,6 @@ These questions were open when the work was planned. These are the answers, foun
 
 **Do the notes land in time?** Yes. With the whole verse, all 35 notes in each of the check's two plays land within one frame of their sound starting.
 
+**Does the build and check work on a machine that has never seen the project?** Yes. On 2026-10-05 GitHub followed steps 1 to 5 of this document on a fresh Ubuntu machine, built the ROM and passed both headless checks, in 24 seconds. PyBoy, which until then had only run on the Steam Deck, needed no change. A push with the check broken on purpose failed at step 5, as it should.
+
 One question is still open: whether PyBoy's picture matches Emulicious's closely enough to trust the headless check. It is a parked ticket in `_bmad-output/backlog/`.
