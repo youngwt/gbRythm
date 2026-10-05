@@ -5,6 +5,7 @@ parent: initiative-gbrythm
 covers: []
 after: []
 assignee: ""
+status: done
 risk: medium
 ---
 
@@ -51,3 +52,7 @@ Music in the existing proof ROM on this Steam Deck. Not gameplay, anything timed
 - Finding: PyBoy 2.7.0 can observe sound. With sound emulation on it exposes the audio samples of each frame and the sound registers; on the current, silent ROM the samples are all zero. Probed 2026-10-04. This answers the spec's first open question in principle; entry 1 proves it on real music. The spec itself has not been updated.
 - Open question: whether hUGEDriver's packaged library links and runs under GBDK 4.5.0; entry 1 answers it. If it does not, the spec's constraint applies: rebuild with RGBDS in the tools folder, and stop and report if that fails.
 - Assumption: the user's own no-commit preference applies to these builds; each story ends with changes left for the user to commit.
+- Decision: the user approved the breakdown by committing it and starting the build; the four decisions above marked "awaiting approval" stand (2026-10-04).
+- Decision: after hearing the opening phrase the user asked for the song to be longer; it now runs through "that saved a wretch like me". The spec was reconciled to match (2026-10-04).
+- Decision: epic closed. The retrospective found all five Done when checks met, verdict accepted with open items; the user confirmed hearing the song as it stands and asked for the epic to be closed (2026-10-05). See epic-music-proof-retrospective.md.
+- Decision: the open question on the packaged library is answered: it works with GBDK 4.5.0. Evidence in docs/setup.md, section "What was found" (2026-10-04).
