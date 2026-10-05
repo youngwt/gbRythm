@@ -1,17 +1,20 @@
 """Run the Game Boy ROM with no window and check the game plays in time.
 
-Usage: check_rom.py ROM OUTPUT_DIR TARGET_IMAGE FALLING_IMAGE
+Usage: check_rom.py ROM OUTPUT_DIR FALLING_IMAGE PITCH=MARKER_IMAGE...
 
-TARGET_IMAGE is the PNG of the marker notes land on, and FALLING_IMAGE the
-PNG of a falling note. The check finds both on the screen, so it needs no
-copy of where they are drawn, and it reads the music from the sound, so it
-needs no copy of the tune.
+FALLING_IMAGE is the PNG of a falling note. Each PITCH=MARKER_IMAGE names a
+pitch, such as D, and the PNG of the marker its notes should land on. The
+check finds the images on the screen, so it needs no copy of where they are
+drawn, and it reads the music from the sound, so it needs no copy of the
+tune. The pitches and markers are the one thing it is told: they are the
+game's design, and the check exists to hold the ROM to it.
 
 Saves screenshot-play.png to OUTPUT_DIR: the screen part-way through the
 song. Exits non-zero when the ROM is missing, the screen is one flat colour,
-the marker is not on screen, the ROM makes no sound, the sound never changes
+a marker is not on screen, the ROM makes no sound, the sound never changes
 note, the falling notes do not match the notes heard, a note lands more than
-a moment away from its sound, or a note does not fall steadily.
+a moment away from its sound, a note lands on the wrong marker, or a note
+does not fall steadily.
 """
 
 import math
@@ -28,7 +31,7 @@ from pyboy import PyBoy
 RUN_FRAMES = 1500
 # When to save the screenshot: five seconds in, with notes on their way down.
 SCREENSHOT_FRAME = 300
-# How long the marker is looked for at the start.
+# How long the markers are looked for at the start.
 MARKER_SEARCH_FRAMES = 120
 # Sound in the first second is ignored. The ROM makes a short blip about
 # half a second after starting even when it plays no music, so sound that
@@ -68,9 +71,12 @@ def load_shades(path: Path) -> np.ndarray:
 def find_on(screen: np.ndarray, image: np.ndarray) -> tuple[int, int] | None:
     """Where the image is, pixel for pixel, on the screen: (top, left)."""
     height, width = image.shape
-    # Only places whose top-left pixel matches are worth a full comparison.
-    corners = screen[:screen.shape[0] - height + 1, :screen.shape[1] - width + 1] == image[0, 0]
-    for top, left in np.argwhere(corners):
+    # Only places where the image's darkest pixel matches are worth a full
+    # comparison; on a mostly white screen that rules out nearly all of them.
+    dark_row, dark_column = np.unravel_index(image.argmax(), image.shape)
+    rows, columns = screen.shape[0] - height + 1, screen.shape[1] - width + 1
+    candidates = screen[dark_row:dark_row + rows, dark_column:dark_column + columns] == image.max()
+    for top, left in np.argwhere(candidates):
         if np.array_equal(screen[top:top + height, left:left + width], image):
             return int(top), int(left)
     return None
@@ -152,22 +158,24 @@ def note_starts(per_frame: list[str | None], loudness: list[int]) -> list[int]:
 
 
 def main() -> int:
-    if len(sys.argv) != 5:
+    if len(sys.argv) < 5 or not all("=" in arg for arg in sys.argv[4:]):
         print(__doc__)
         return 2
 
     rom = Path(sys.argv[1])
     output_dir = Path(sys.argv[2])
-    target_path = Path(sys.argv[3])
-    falling_path = Path(sys.argv[4])
+    falling_path = Path(sys.argv[3])
+    # The marker image for each pitch, in the order given: left to right.
+    marker_paths = {pitch: Path(path) for pitch, path in (arg.split("=", 1) for arg in sys.argv[4:])}
     screenshot_path = output_dir / "screenshot-play.png"
 
-    for path, what in ((rom, "ROM"), (target_path, "image file"), (falling_path, "image file")):
+    for path, what in [(rom, "ROM"), (falling_path, "image file")] + [
+        (path, "image file") for path in marker_paths.values()
+    ]:
         if not path.is_file():
             print(f"FAIL: {what} not found: {path}")
             return 1
 
-    target = load_shades(target_path)
     falling = load_shades(falling_path)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -197,17 +205,23 @@ def main() -> int:
         print(f"FAIL: screen is one flat colour; see {screenshot_path}")
         return 1
 
-    # The marker is looked for in the first two seconds, before any note has
-    # reached it; the ROM takes a moment to draw its screen.
-    place = None
-    for screen in frames[:MARKER_SEARCH_FRAMES:5]:
-        place = find_on(screen, target)
-        if place is not None:
-            break
-    if place is None:
-        print(f"FAIL: {target_path} was not found on screen; see {screenshot_path}")
+    # The markers are looked for in the first two seconds, before any note
+    # has reached them; the ROM takes a moment to draw its screen.
+    places: dict[str, tuple[int, int]] = {}
+    for pitch, path in marker_paths.items():
+        marker = load_shades(path)
+        for screen in frames[:MARKER_SEARCH_FRAMES:5]:
+            place = find_on(screen, marker)
+            if place is not None:
+                places[pitch] = place
+                break
+        else:
+            print(f"FAIL: {path} was not found on screen; see {screenshot_path}")
+            return 1
+    target_top = next(iter(places.values()))[0]
+    if any(top != target_top for top, _ in places.values()):
+        print(f"FAIL: the markers are not in one row; see {screenshot_path}")
         return 1
-    target_top, target_left = place
 
     notes = notes_heard(per_frame[SOUND_SETTLE_FRAMES:])
     if not notes:
@@ -220,57 +234,82 @@ def main() -> int:
         )
         return 1
 
-    # Follow the falling notes: in every frame, how far down each one is in
-    # the column of screen above the marker.
+    # Follow the falling notes: for each lane, in every frame, how far down
+    # each note is in the column of screen above that lane's marker.
     width = falling.shape[1]
-    positions = [
-        falling_notes_in(screen[:, target_left:target_left + width], falling) for screen in frames
-    ]
+    lanes = {
+        pitch: [falling_notes_in(screen[:, left:left + width], falling) for screen in frames]
+        for pitch, (_, left) in places.items()
+    }
 
     # Steady motion: a note seen in one frame is the same distance further
     # down in the next. If the game ever fell behind and skipped a frame,
     # a note would stand still and then jump.
-    moving = [(frame, top) for frame, tops in enumerate(positions) for top in tops if top < target_top]
+    moving = sorted(
+        (frame, top, pitch)
+        for pitch, positions in lanes.items()
+        for frame, tops in enumerate(positions)
+        for top in tops
+        if top < target_top
+    )
     if not moving:
-        print(f"FAIL: no falling notes were seen above the marker; see {screenshot_path}")
+        print(f"FAIL: no falling notes were seen above the markers; see {screenshot_path}")
         return 1
-    first_frame, first_top = moving[0]
-    later = [top for top in positions[first_frame + 1] if top > first_top]
+    first_frame, first_top, first_pitch = moving[0]
+    later = [top for top in lanes[first_pitch][first_frame + 1] if top > first_top]
     step = min(later) - first_top if later else 0
-    for frame, top in moving:
-        if frame + 1 < RUN_FRAMES and top + step <= target_top and top + step not in positions[frame + 1]:
+    for frame, top, pitch in moving:
+        if frame + 1 < RUN_FRAMES and top + step <= target_top and top + step not in lanes[pitch][frame + 1]:
             print(
                 f"FAIL: the frame rate did not hold: a note at {top} pixels down in frame {frame} "
                 f"was not {step} pixels further down in the next frame"
             )
             return 1
 
-    # Timing: each note should be on the marker in the frame its sound
-    # starts. The last few frames are left out so a note cut off by the end
-    # of the run is not counted on one side only.
+    # Timing and lane: each note should be on a marker in the frame its
+    # sound starts, and on the marker for its pitch. The last few frames are
+    # left out so a note cut off by the end of the run is not counted on one
+    # side only.
     last = RUN_FRAMES - 2 * MAX_GAP_FRAMES
-    landings = [f for f, tops in enumerate(positions) if target_top in tops and f < last]
+    landings = sorted(
+        (frame, pitch)
+        for pitch, positions in lanes.items()
+        for frame, tops in enumerate(positions)
+        if target_top in tops and frame < last
+    )
     starts = [f for f in note_starts(per_frame, loudness) if f < last]
     if len(landings) != len(starts):
         print(
-            f"FAIL: {len(landings)} notes landed on the marker but {len(starts)} notes were heard; "
+            f"FAIL: {len(landings)} notes landed on a marker but {len(starts)} notes were heard; "
             f"every note of the tune should have one falling note"
         )
         return 1
-    gaps = [landing - start for landing, start in zip(landings, starts)]
-    worst = max(gaps, key=abs)
-    if abs(worst) > MAX_GAP_FRAMES:
-        where = gaps.index(worst)
-        print(
-            f"FAIL: note {where + 1} landed {abs(worst)} frames {'after' if worst > 0 else 'before'} "
-            f"its sound started (frame {landings[where]} against {starts[where]}); "
-            f"the most allowed is {MAX_GAP_FRAMES}"
-        )
-        return 1
+    worst = 0
+    for number, ((landing, lane), start) in enumerate(zip(landings, starts), 1):
+        heard = per_frame[start]
+        # "F#4" is the pitch F# in octave 4; the lane depends on the pitch.
+        pitch = heard.rstrip("0123456789")
+        gap = landing - start
+        if abs(gap) > MAX_GAP_FRAMES:
+            print(
+                f"FAIL: note {number} ({heard}) landed {abs(gap)} frames {'after' if gap > 0 else 'before'} "
+                f"its sound started (frame {landing} against {start}); the most allowed is {MAX_GAP_FRAMES}"
+            )
+            return 1
+        if pitch not in marker_paths:
+            print(f"FAIL: note {number} is {heard}, and no marker was given for the pitch {pitch}")
+            return 1
+        if lane != pitch:
+            print(
+                f"FAIL: note {number} ({heard}) landed on {marker_paths[lane]}, "
+                f"but its pitch {pitch} belongs on {marker_paths[pitch]}"
+            )
+            return 1
+        worst = max(worst, abs(gap))
 
     print(
-        f"PASS: {len(landings)} notes fell and {len(starts)} were heard, each landing within "
-        f"{abs(worst)} frame(s) of its sound, moving {step} pixels a frame; "
+        f"PASS: {len(landings)} notes fell and {len(starts)} were heard, each on the marker for its pitch "
+        f"within {worst} frame(s) of its sound, moving {step} pixels a frame; "
         f"notes heard: {' '.join(notes)}; see {screenshot_path}"
     )
     return 0

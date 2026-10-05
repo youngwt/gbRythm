@@ -1,5 +1,6 @@
-// The play screen: notes fall down a lane and land on a marker as they
-// sound.
+// The play screen: notes fall down five lanes and land on a marker as they
+// sound. Each lane belongs to one button, and a note's pitch decides its
+// lane.
 //
 // The falling notes are not a second copy of the tune. The game reads the
 // song's own rows, the same data the music driver plays, but starts reading
@@ -14,13 +15,42 @@
 
 #include "falling.h"
 #include "game.h"
+#include "lane_1_left.h"
+#include "lane_2_up.h"
+#include "lane_3_right.h"
+#include "lane_4_b.h"
+#include "lane_5_a.h"
 #include "song.h"
-#include "target.h"
 
-// Where the marker sits, in pixels from the top left of the screen. Both
-// are multiples of 8 because the marker is a background tile.
-#define LANE_X 72
+// The five lanes, left to right: the Left, Up and Right buttons, then B,
+// then A. Each has a marker at the bottom showing its button.
+#define LANES 5
+
+// Where the markers sit, in pixels from the top left of the screen. All are
+// multiples of 8 because a marker is a background tile.
 #define TARGET_Y 120
+static const uint8_t lane_x[LANES] = {32, 56, 80, 104, 128};
+
+// Which lane each of the twelve pitches in an octave falls in, counting
+// from C. The tune uses five: D, E, G, A and B, lowest on the left. The
+// names collide: the note A is on the B button, and the note B on the A
+// button.
+#define NO_LANE 0xFF
+#define PITCHES_PER_OCTAVE 12
+static const uint8_t lane_of_pitch[PITCHES_PER_OCTAVE] = {
+    NO_LANE,  // C
+    NO_LANE,  // C sharp
+    0,        // D: the Left button
+    NO_LANE,  // D sharp
+    1,        // E: the Up button
+    NO_LANE,  // F
+    NO_LANE,  // F sharp
+    2,        // G: the Right button
+    NO_LANE,  // G sharp
+    3,        // A: the B button
+    NO_LANE,  // A sharp
+    4,        // B: the A button
+};
 
 // How a note falls: FALL_SPEED pixels every frame for LEAD_FRAMES frames,
 // which must bring it from the top of the screen exactly onto the marker.
@@ -48,8 +78,10 @@
 #define SPRITE_X_OFFSET 8
 #define SPRITE_Y_OFFSET 16
 
-// One slot per sprite: whether a note is falling in it and how far down.
+// One slot per sprite: whether a note is falling in it, which lane's
+// column it is in, and how far down.
 uint8_t falling_active[MAX_FALLING];
+uint8_t falling_x[MAX_FALLING];
 uint8_t falling_y[MAX_FALLING];
 
 // The reader's place in the song: which step of the order, which row of
@@ -67,6 +99,8 @@ uint8_t i;
 uint8_t row_note;
 uint8_t row_instrument;
 uint8_t row_effect;
+uint8_t row_pitch;
+uint8_t row_lane;
 
 // Point the reader at the first row of the current step's pattern.
 static void read_from_pattern_start(void)
@@ -86,14 +120,16 @@ static void read_next_order(void)
     read_from_pattern_start();
 }
 
-// Start a note falling from the top of the lane, in the first free slot.
+// Start a note falling from the top of lane row_lane, in the first free
+// slot.
 static void drop_note(void)
 {
     for (i = 0; i != MAX_FALLING; i++) {
         if (!falling_active[i]) {
             falling_active[i] = 1;
+            falling_x[i] = lane_x[row_lane];
             falling_y[i] = START_Y;
-            move_sprite(i, LANE_X + SPRITE_X_OFFSET, START_Y + SPRITE_Y_OFFSET);
+            move_sprite(i, falling_x[i] + SPRITE_X_OFFSET, START_Y + SPRITE_Y_OFFSET);
             return;
         }
     }
@@ -116,7 +152,18 @@ static void read_one_row(void)
         // rest, so it is not a note to play.
         if (read_instrument != 0 &&
             (proof_song.duty_instruments[read_instrument - 1].envelope >> 4) != 0) {
-            drop_note();
+            // Notes are numbered up from C in the lowest octave, twelve to
+            // an octave, so taking away whole octaves leaves the pitch. The
+            // same pitch lands in the same lane in every octave.
+            row_pitch = row_note;
+            while (row_pitch >= PITCHES_PER_OCTAVE) {
+                row_pitch -= PITCHES_PER_OCTAVE;
+            }
+            row_lane = lane_of_pitch[row_pitch];
+            // A pitch outside the five has no lane and nothing falls.
+            if (row_lane != NO_LANE) {
+                drop_note();
+            }
         }
     }
 
@@ -138,11 +185,20 @@ void game_init(void)
     gotoxy(0, 17);
     printf("GBRYTHM");
 
-    // The marker is a background tile. The falling note is a sprite, a small
-    // picture that moves freely over the background. Sprites can use the
-    // same tiles as background images, so both come from PNGs in assets/.
-    set_bkg_data(target_TILE_ORIGIN, target_TILE_COUNT, target_tiles);
-    set_bkg_tiles(LANE_X >> 3, TARGET_Y >> 3, 1, 1, target_map);
+    // The markers are background tiles, one image per lane. The falling
+    // note is a sprite, a small picture that moves freely over the
+    // background. Sprites can use the same tiles as background images, so
+    // all of these come from PNGs in assets/.
+    set_bkg_data(lane_1_left_TILE_ORIGIN, lane_1_left_TILE_COUNT, lane_1_left_tiles);
+    set_bkg_tiles(lane_x[0] >> 3, TARGET_Y >> 3, 1, 1, lane_1_left_map);
+    set_bkg_data(lane_2_up_TILE_ORIGIN, lane_2_up_TILE_COUNT, lane_2_up_tiles);
+    set_bkg_tiles(lane_x[1] >> 3, TARGET_Y >> 3, 1, 1, lane_2_up_map);
+    set_bkg_data(lane_3_right_TILE_ORIGIN, lane_3_right_TILE_COUNT, lane_3_right_tiles);
+    set_bkg_tiles(lane_x[2] >> 3, TARGET_Y >> 3, 1, 1, lane_3_right_map);
+    set_bkg_data(lane_4_b_TILE_ORIGIN, lane_4_b_TILE_COUNT, lane_4_b_tiles);
+    set_bkg_tiles(lane_x[3] >> 3, TARGET_Y >> 3, 1, 1, lane_4_b_map);
+    set_bkg_data(lane_5_a_TILE_ORIGIN, lane_5_a_TILE_COUNT, lane_5_a_tiles);
+    set_bkg_tiles(lane_x[4] >> 3, TARGET_Y >> 3, 1, 1, lane_5_a_map);
     set_bkg_data(falling_TILE_ORIGIN, falling_TILE_COUNT, falling_tiles);
 
     // Sprite colours: the lightest is always see-through, then light grey,
@@ -174,7 +230,7 @@ void game_tick(void)
                 move_sprite(i, 0, 0);
             } else {
                 falling_y[i] += FALL_SPEED;
-                move_sprite(i, LANE_X + SPRITE_X_OFFSET, falling_y[i] + SPRITE_Y_OFFSET);
+                move_sprite(i, falling_x[i] + SPRITE_X_OFFSET, falling_y[i] + SPRITE_Y_OFFSET);
             }
         }
     }

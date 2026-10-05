@@ -72,10 +72,15 @@ endif
 $(BUILD_DIR):
 	mkdir -p $@
 
-# The check is given the marker and falling-note images so it can find them
-# on the screen.
+# The check is given the falling-note image and, for each pitch, the marker
+# its notes should land on, so it can find them on the screen. This is the
+# lane design from the spec, stated a second time on purpose: the check
+# fails if the ROM does not follow it.
+LANE_MARKERS := D=assets/lane_1_left.png E=assets/lane_2_up.png G=assets/lane_3_right.png \
+                A=assets/lane_4_b.png B=assets/lane_5_a.png
+
 check: $(ROM) | require-python
-	$(PYTHON) scripts/check_rom.py $(ROM) $(BUILD_DIR) assets/target.png assets/falling.png
+	$(PYTHON) scripts/check_rom.py $(ROM) $(BUILD_DIR) assets/falling.png $(LANE_MARKERS)
 
 # Build a second ROM for the debugger in build/debug, leaving the normal ROM
 # alone. -debug writes the .cdb file that maps machine code back to C lines.
