@@ -2,6 +2,7 @@
 
 Usage: check_rom.py ROM OUTPUT_DIR --falling IMAGE --lane PITCH=BUTTON=IMAGE...
                     --perfect IMAGE --good IMAGE --miss IMAGE --digits IMAGE
+                    --start IMAGE --results IMAGE
 
 The check finds the game's images on the screen, so it needs no copy of
 where they are drawn, and it reads the music from the sound, so it needs no
@@ -10,9 +11,12 @@ hold the ROM to: which pitch belongs to which button and marker (--lane),
 and how close a press must be to count (PERFECT_FRAMES and GOOD_FRAMES
 below).
 
-It first plays the song with no presses and checks that the notes fall in
-time, in the right lanes and steadily. It then plays it again several times
-with scripted button presses, reading the three counts off the screen.
+It first presses Start and lets the song play twice with no other presses,
+checking that nothing happens before Start, that the notes fall in time, in
+the right lanes and steadily, that the song ends in silence with the
+results, and that Start plays it again from zero. It then plays the song
+several more times with scripted button presses, reading the three counts
+off the results.
 
 Saves screenshot-play.png to OUTPUT_DIR: the screen part-way through the
 song. Exits non-zero, saying why, when anything is not as designed.
@@ -27,14 +31,22 @@ import numpy as np
 from PIL import Image
 from pyboy import PyBoy
 
-# How long to run the ROM: 25 seconds of Game Boy time, enough for the song
-# to play through once and start again. The Game Boy draws about 60 frames a
-# second; the emulator runs them much faster than that.
-RUN_FRAMES = 1500
+# The Game Boy draws about 60 frames a second; the emulator runs them much
+# faster than that.
+# When Start is first pressed: a second and a half in, after a wait long
+# enough to show that nothing happens without it.
+START_FRAME = 90
+# How long the results are left on screen before Start is pressed again: ten
+# seconds, to show the music stays stopped.
+RESULTS_FRAMES = 600
+# The longest a play of the song may take before the check gives up on it
+# ending: two minutes.
+MAX_PLAY_FRAMES = 7200
 # When to save the screenshot: five seconds in, with notes on their way down.
 SCREENSHOT_FRAME = 300
-# How long the markers and words are looked for at the start.
-IMAGE_SEARCH_FRAMES = 120
+# How long the markers and words are looked for at the start: up to the
+# first press of Start. The ROM takes a moment to draw its screen.
+IMAGE_SEARCH_FRAMES = START_FRAME
 # The game reads the buttons a little after the emulator is told of a press,
 # so a scripted press is sent this many frames before it should count.
 PRESS_FRAME_OFFSET = 0
@@ -184,11 +196,17 @@ def read_count(screen: np.ndarray, place: tuple[int, int], word_width: int, digi
     return number
 
 
+def shows(screen: np.ndarray, image: np.ndarray, place: tuple[int, int]) -> bool:
+    """Whether the image is on the screen at the place given."""
+    top, left = place
+    return np.array_equal(screen[top:top + image.shape[0], left:left + image.shape[1]], image)
+
+
 def play(rom: Path, presses: dict[int, list[str]], last_frame: int, held: list[str] = ()) -> np.ndarray:
     """Play the ROM with scripted presses and return the screen at last_frame.
 
-    presses says which buttons to tap before which frame. Buttons in held
-    are pressed at the start and never let go.
+    presses says which buttons to tap before which frame, Start included.
+    Buttons in held are pressed at the start and never let go.
     """
     pyboy = PyBoy(str(rom), window="null", sound_emulated=False)
     try:
@@ -213,6 +231,8 @@ def main() -> int:
     parser.add_argument("--good", type=Path, required=True)
     parser.add_argument("--miss", type=Path, required=True)
     parser.add_argument("--digits", type=Path, required=True)
+    parser.add_argument("--start", type=Path, required=True)
+    parser.add_argument("--results", type=Path, required=True)
     args = parser.parse_args()
 
     rom = args.rom
@@ -227,16 +247,18 @@ def main() -> int:
     word_paths = {"perfect": args.perfect, "good": args.good, "miss": args.miss}
     screenshot_path = args.output_dir / "screenshot-play.png"
 
-    for path in [rom, falling_path, args.digits, *marker_paths.values(), *word_paths.values()]:
+    for path in [rom, falling_path, args.digits, args.start, args.results, *marker_paths.values(), *word_paths.values()]:
         if not path.is_file():
             print(f"FAIL: file not found: {path}")
             return 1
 
     falling = load_shades(falling_path)
     digits = load_shades(args.digits)
+    prompt = load_shades(args.start)
+    heading = load_shades(args.results)
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    # ---- First play: no presses. Are the notes in time, in lane, steady? ----
+    # ---- First run: Start, the song, the results, Start, the song again. ----
 
     # window="null" runs the emulator with no display at all. Sound is still
     # worked out, though nothing is played: after each frame the emulator
@@ -245,28 +267,61 @@ def main() -> int:
     frames: list[np.ndarray] = []      # the screen in shades, one per frame
     per_frame: list[str | None] = []   # the note sounding, one per frame
     loudness: list[int] = []           # the loudest sample, one per frame
+    start_frames = [START_FRAME]       # the frames Start is pressed before
+    results_seen: list[int] = []       # roughly when each results heading appeared
+    heading_place = None
     try:
-        for frame in range(RUN_FRAMES):
+        frame = 0
+        while True:
+            if frame == start_frames[-1]:
+                pyboy.button("start")
             pyboy.tick()
-            # The screen is grey, so one colour channel is its brightness.
-            frames.append(shades(np.asarray(pyboy.screen.ndarray)[:, :, 0]))
+            screen = shades(np.asarray(pyboy.screen.ndarray)[:, :, 0])
+            frames.append(screen)
             # Both speakers carry the same sound here; the left is enough.
             samples = np.asarray(pyboy.sound.ndarray)[:, 0].astype(int)
             per_frame.append(note_in(samples, pyboy.sound.sample_rate))
             loudness.append(int(samples.max()))
             if frame == SCREENSHOT_FRAME:
                 pyboy.screen.image.convert("RGB").save(screenshot_path)
+
+            # Every few frames of a play, look for the results heading: that
+            # is how the check knows the song has ended.
+            playing = len(results_seen) < len(start_frames) and frame > start_frames[-1]
+            if playing and frame % 10 == 0:
+                place = find_on(screen, heading)
+                if place is not None:
+                    heading_place = place
+                    results_seen.append(frame)
+                    if len(results_seen) == 1:
+                        start_frames.append(frame + RESULTS_FRAMES)
+            if playing and frame - start_frames[-1] > MAX_PLAY_FRAMES:
+                print(
+                    f"FAIL: {args.results} did not appear within {MAX_PLAY_FRAMES} frames of Start being "
+                    f"pressed; the song should end and show its results; see {screenshot_path}"
+                )
+                return 1
+            # Stop a second after the second results appear.
+            if len(results_seen) == 2 and frame > results_seen[1] + 60:
+                break
+            frame += 1
     finally:
         pyboy.stop(save=False)
+    run_frames = len(frames)
+    again_frame = start_frames[1]
+    # The exact frame each results heading appeared.
+    results_frames = [
+        next(f for f in range(seen - 10, seen + 1) if shows(frames[f], heading, heading_place))
+        for seen in results_seen
+    ]
 
     shown = frames[SCREENSHOT_FRAME]
     if shown.min() == shown.max():
         print(f"FAIL: screen is one flat colour; see {screenshot_path}")
         return 1
 
-    # The markers and the count words are looked for in the first two
-    # seconds, before any note has been judged; the ROM takes a moment to
-    # draw its screen.
+    # The markers, the count words and the prompt are looked for before
+    # Start is pressed.
     def find_early(path: Path) -> tuple[int, int] | None:
         image = load_shades(path)
         for screen in frames[:IMAGE_SEARCH_FRAMES:5]:
@@ -289,6 +344,12 @@ def main() -> int:
             return 1
         word_places[word] = place
     word_width = load_shades(args.perfect).shape[1]
+    prompt_place = find_early(args.start)
+    if prompt_place is None:
+        return 1
+
+    def counts_on(screen: np.ndarray) -> dict[str, int | None]:
+        return {word: read_count(screen, word_places[word], word_width, digits) for word in word_places}
 
     target_top = next(iter(places.values()))[0]
     if any(top != target_top for top, _ in places.values()):
@@ -297,7 +358,7 @@ def main() -> int:
 
     notes = notes_heard(per_frame[SOUND_SETTLE_FRAMES:])
     if not notes:
-        print(f"FAIL: no sound was produced between frames {SOUND_SETTLE_FRAMES} and {RUN_FRAMES}")
+        print(f"FAIL: no sound was produced between frames {SOUND_SETTLE_FRAMES} and {run_frames}")
         return 1
     if len(set(notes)) < MIN_DIFFERENT_NOTES:
         print(
@@ -331,7 +392,7 @@ def main() -> int:
     later = [top for top in lanes[first_pitch][first_frame + 1] if top > first_top]
     step = min(later) - first_top if later else 0
     for frame, top, pitch in moving:
-        if frame + 1 < RUN_FRAMES and top + step <= target_top and top + step not in lanes[pitch][frame + 1]:
+        if frame + 1 < run_frames and top + step <= target_top and top + step not in lanes[pitch][frame + 1]:
             print(
                 f"FAIL: the frame rate did not hold: a note at {top} pixels down in frame {frame} "
                 f"was not {step} pixels further down in the next frame"
@@ -339,17 +400,14 @@ def main() -> int:
             return 1
 
     # Timing and lane: each note should be on a marker in the frame its
-    # sound starts, and on the marker for its pitch. The last few frames are
-    # left out so a note cut off by the end of the run is not counted on one
-    # side only.
-    last = RUN_FRAMES - 2 * MAX_GAP_FRAMES
+    # sound starts, and on the marker for its pitch.
     landings = sorted(
         (frame, pitch)
         for pitch, positions in lanes.items()
         for frame, tops in enumerate(positions)
-        if target_top in tops and frame < last
+        if target_top in tops
     )
-    starts = [f for f in note_starts(per_frame, loudness) if f < last]
+    starts = note_starts(per_frame, loudness)
     if len(landings) != len(starts):
         print(
             f"FAIL: {len(landings)} notes landed on a marker but {len(starts)} notes were heard; "
@@ -379,38 +437,126 @@ def main() -> int:
             return 1
         worst = max(worst, abs(gap))
 
+    # ---- Start, the ending and playing again, from the same run. ----
+
+    # Before Start: the prompt is showing, nothing falls and nothing plays.
+    if not all(shows(frames[f], prompt, prompt_place) for f in range(IMAGE_SEARCH_FRAMES - 10, START_FRAME)):
+        print(f"FAIL: {args.start} should be on screen until Start is pressed; see {screenshot_path}")
+        return 1
+    if landings[0][0] < START_FRAME or any(frame < START_FRAME for frame, _, _ in moving):
+        print("FAIL: a note fell before Start was pressed")
+        return 1
+    if any(note is not None for note in per_frame[SOUND_SETTLE_FRAMES:START_FRAME]):
+        print("FAIL: music played before Start was pressed")
+        return 1
+
+    # Each play has the same notes; the first play's are the song.
+    first = [(frame, pitch) for frame, pitch in landings if frame < results_frames[0]]
+    second = [(frame, pitch) for frame, pitch in landings if frame > again_frame]
+    total = len(first)
+    if [pitch for _, pitch in first] != [pitch for _, pitch in second] or len(first) + len(second) != len(landings):
+        print(
+            f"FAIL: {total} notes fell in the first play and {len(second)} in the second, "
+            f"out of {len(landings)} in all; every play should have the same notes"
+        )
+        return 1
+
+    # During a play the prompt and heading are gone.
+    for begun in start_frames:
+        screen = frames[begun + 30]
+        if shows(screen, prompt, prompt_place) or shows(screen, heading, heading_place):
+            print(f"FAIL: the prompt or the results heading was still on screen after Start; see {screenshot_path}")
+            return 1
+
+    # The tune must not start again at the end, even for a frame. Once the
+    # last note has died away, there should be no more sound.
+    after_last = range(first[-1][0], results_frames[0])
+    silent_from = next((f for f in after_last if loudness[f] == 0), None)
+    if silent_from is not None and any(loudness[f] != 0 for f in range(silent_from, results_frames[0])):
+        noisy = next(f for f in range(silent_from, results_frames[0]) if loudness[f] != 0)
+        print(
+            f"FAIL: sound came back in frame {noisy}, after the last note had died away; "
+            f"the music should stop as the song ends, not start again"
+        )
+        return 1
+
+    # After the song: the results stay, with the prompt, in silence.
+    quiet = range(results_frames[0], again_frame)
+    if any(per_frame[f] is not None or loudness[f] != 0 for f in quiet):
+        noisy = next(f for f in quiet if per_frame[f] is not None or loudness[f] != 0)
+        print(
+            f"FAIL: there was sound in frame {noisy}, after the song ended in frame {results_frames[0]}; "
+            f"the music should stop and stay stopped until Start is pressed"
+        )
+        return 1
+    if any(tops for positions in lanes.values() for tops in positions[results_frames[0]:again_frame]):
+        print("FAIL: a note was falling while the results were showing")
+        return 1
+    if not all(shows(frames[f], prompt, prompt_place) and shows(frames[f], heading, heading_place)
+               for f in (results_frames[0] + 5, again_frame - 5)):
+        print(f"FAIL: the results heading and the prompt should stay on screen until Start is pressed")
+        return 1
+
+    # The results, with no presses made: every note a miss, in both plays.
+    all_miss = {"perfect": 0, "good": 0, "miss": total}
+    for which, results_frame in zip(("first", "second"), results_frames):
+        counts = counts_on(frames[results_frame + 5])
+        if counts != all_miss:
+            print(
+                f"FAIL: the results of the {which} play, with no presses, should show 0 perfect, 0 good, "
+                f"{total} miss but show " + ", ".join(f"{counts[word]} {word}" for word in counts)
+            )
+            return 1
+
+    # Pressing Start again clears the score before the first note arrives.
+    counts = counts_on(frames[again_frame + 30])
+    if any(count != 0 for count in counts.values()):
+        print(
+            "FAIL: the counts should go back to zero when Start is pressed to play again, but the screen shows "
+            + ", ".join(f"{counts[word]} {word}" for word in counts)
+        )
+        return 1
+
     # ---- Further plays: scripted presses. Are they judged as designed? ----
 
-    # The song repeats for ever, so the counts are read at a quiet moment:
-    # the middle of the longest gap between notes, when every earlier note
-    # has been judged and the next is not yet near.
-    gaps = [later - earlier for (earlier, _), (later, _) in zip(landings, landings[1:])]
-    widest = max(range(len(gaps)), key=gaps.__getitem__)
-    read_frame = landings[widest][0] + gaps[widest] // 2
-    judged = landings[:widest + 1]
-    total = len(judged)
+    # Each plays the song once and reads the counts off the results.
+    judged = first
+    read_frame = results_frames[0] + 5
     pitches = list(buttons)
 
     def taps(frames_late: int) -> dict[int, list[str]]:
-        """Press each note's own button this many frames after it lands."""
-        schedule: dict[int, list[str]] = {}
+        """Press Start, then each note's own button this many frames after it lands."""
+        schedule: dict[int, list[str]] = {START_FRAME: ["start"]}
         for landing, pitch in judged:
             schedule.setdefault(landing + frames_late + PRESS_FRAME_OFFSET, []).append(buttons[pitch])
         return schedule
 
     # Stray presses: as each note lands, the next lane's button; and the
     # note's own button well after it has gone and before the next arrives.
-    stray: dict[int, list[str]] = {}
+    stray: dict[int, list[str]] = {START_FRAME: ["start"]}
     for landing, pitch in judged:
         wrong = buttons[pitches[(pitches.index(pitch) + 1) % len(pitches)]]
         stray.setdefault(landing + PRESS_FRAME_OFFSET, []).append(wrong)
         stray.setdefault(landing + GOOD_FRAMES + 3 + PRESS_FRAME_OFFSET, []).append(buttons[pitch])
 
-    all_miss = {"perfect": 0, "good": 0, "miss": total}
+    # Start pressed again in the middle of the song, between two notes.
+    restart = taps(0)
+    middle = len(judged) // 2
+    restart.setdefault((judged[middle][0] + judged[middle + 1][0]) // 2, []).append("start")
+
+    # Lane buttons pressed while waiting for Start and while the results are
+    # showing; the counts are then read a little later than usual.
+    idle: dict[int, list[str]] = {START_FRAME: ["start"]}
+    for n, button in enumerate(buttons.values()):
+        idle.setdefault(20 + 10 * n, []).append(button)
+        idle.setdefault(read_frame + 10 + 10 * n, []).append(button)
+    idle_read_frame = read_frame + 10 + 10 * len(buttons) + 10
+
+    just_start = {START_FRAME: ["start"]}
     all_good = {"perfect": 0, "good": total, "miss": 0}
     all_perfect = {"perfect": total, "good": 0, "miss": 0}
     scenarios = [
-        ("no presses", {}, (), all_miss),
+        ("no presses", just_start, (), all_miss),
         ("presses on time", taps(0), (), all_perfect),
         (f"presses {PERFECT_FRAMES} frames late", taps(PERFECT_FRAMES), (), all_perfect),
         (f"presses {PERFECT_FRAMES} frames early", taps(-PERFECT_FRAMES), (), all_perfect),
@@ -419,42 +565,36 @@ def main() -> int:
         (f"presses {GOOD_FRAMES} frames early", taps(-GOOD_FRAMES), (), all_good),
         (f"presses {GOOD_FRAMES + 1} frames late", taps(GOOD_FRAMES + 1), (), all_miss),
         ("stray presses", stray, (), all_miss),
-        ("every button held down", {}, tuple(buttons.values()), all_miss),
+        ("every lane button held down", just_start, tuple(buttons.values()), all_miss),
+        ("presses on time and Start pressed again mid-song", restart, (), all_perfect),
+        ("lane buttons pressed only before Start and on the results", idle, (), all_miss),
     ]
     for name, presses, held, expected in scenarios:
-        screen = play(rom, presses, read_frame, held)
-        counts = {word: read_count(screen, word_places[word], word_width, digits) for word in word_places}
+        last_frame = idle_read_frame if presses is idle else read_frame
+        screen = play(rom, presses, last_frame, held)
+        if not shows(screen, heading, heading_place):
+            print(f"FAIL: with {name}, the results were not showing by frame {last_frame}")
+            return 1
+        counts = counts_on(screen)
         if None in counts.values():
             print(f"FAIL: with {name}, a count on the screen could not be read")
             return 1
         if counts != expected:
             print(
-                f"FAIL: with {name}, the first {total} notes should score "
+                f"FAIL: with {name}, the {total} notes should score "
                 + ", ".join(f"{expected[word]} {word}" for word in expected)
                 + " but the screen shows "
                 + ", ".join(f"{counts[word]} {word}" for word in counts)
             )
             return 1
 
-    # When the song starts again the score should too. In the first play,
-    # just before the first note of the second time through lands, every
-    # note of the first time has been counted and then the counts cleared.
-    if widest + 1 < len(landings):
-        screen = frames[landings[widest + 1][0] - 2]
-        counts = {word: read_count(screen, word_places[word], word_width, digits) for word in word_places}
-        if any(count != 0 for count in counts.values()):
-            print(
-                "FAIL: the counts should go back to zero when the song starts again, but the screen shows "
-                + ", ".join(f"{counts[word]} {word}" for word in counts)
-            )
-            return 1
-
     print(
-        f"PASS: {len(landings)} notes fell and {len(starts)} were heard, each on the marker for its pitch "
-        f"within {worst} frame(s) of its sound, moving {step} pixels a frame; "
-        f"{len(scenarios)} ways of pressing were judged as designed over the first {total} notes, "
-        f"and the counts went back to zero when the song started again; "
-        f"notes heard: {' '.join(notes)}; see {screenshot_path}"
+        f"PASS: nothing happened before Start; {total} notes fell and were heard in each of two plays, "
+        f"each on the marker for its pitch within {worst} frame(s) of its sound, moving {step} pixels a frame; "
+        f"the song ended in silence with its results and Start played it again from zero; "
+        f"{len(scenarios)} ways of pressing were judged as designed; "
+        f"notes heard: {' '.join(notes_heard(per_frame[SOUND_SETTLE_FRAMES:results_frames[0]]))}; "
+        f"see {screenshot_path}"
     )
     return 0
 

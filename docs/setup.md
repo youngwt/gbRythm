@@ -98,16 +98,20 @@ This converts each image in `assets/` to C (see "Adding or changing an image" be
 make check
 ```
 
-This builds the ROM if needed and plays it in PyBoy with no window. The emulator runs much faster than a real Game Boy, so the whole check takes about three seconds.
+This builds the ROM if needed and plays it in PyBoy with no window. The emulator runs much faster than a real Game Boy, so the whole check takes about five seconds.
 
-**First it plays the song with no presses**, for 25 seconds of Game Boy time: long enough for the song to play through and start again. In every frame it records what is on the screen and what sound was made. Afterwards it:
+**First it presses Start and lets the song play twice**, with no other presses. It waits a second and a half before the first Start, leaves the results showing for ten seconds, then presses Start again. In every frame it records what is on the screen and what sound was made. Afterwards it:
 
-1. finds the five lane markers, the three count words and the digits on the screen, from the PNGs in `assets/`;
-2. works out which notes were played, and the frame each one started;
-3. follows the falling notes, `assets/falling.png`, down the screen above each marker, frame by frame;
-4. compares the frame each note landed on a marker with the frame its sound started, and the marker it landed on with the one its pitch belongs to.
+1. finds the lane markers, the count words, the digits and the `PRESS START` prompt on the screen, from the PNGs in `assets/`;
+2. confirms nothing fell and nothing played before Start;
+3. works out which notes were played, and the frame each one started;
+4. follows the falling notes, `assets/falling.png`, down the screen above each marker, frame by frame;
+5. compares the frame each note landed on a marker with the frame its sound started, and the marker it landed on with the one its pitch belongs to;
+6. confirms the song ended: the `RESULTS` heading appeared, the music stopped without the tune starting again, and it stayed silent, with nothing falling, until Start;
+7. reads the counts off the results, which with no presses must be every note a miss;
+8. confirms the second Start cleared the counts and that the second play had the same notes and the same results.
 
-**Then it plays the song ten more times with scripted button presses**, and each time reads the PERFECT, GOOD and MISS counts off the screen:
+**Then it plays the song twelve more times with scripted button presses**, pressing Start first each time, and reads the PERFECT, GOOD and MISS counts off the results:
 
 | Presses | Every note should be |
 |---|---|
@@ -116,24 +120,28 @@ This builds the ROM if needed and plays it in PyBoy with no window. The emulator
 | 4 frames late; 7 late; 7 early | good |
 | 8 frames late | a miss, with the press ignored |
 | the wrong lane's button as each note lands, and the right button well after it has gone | a miss, with nothing else counted |
-| every button held down throughout | a miss |
+| every lane button held down throughout | a miss |
+| on time, with Start pressed again in the middle of the song | perfect: Start changes nothing |
+| lane buttons only before Start and on the results | a miss: they change nothing |
 
 It prints `PASS` and exits 0 when all of that holds. The message gives the numbers and lists the notes heard. It saves the screen, five seconds in, to `build/screenshot-play.png`.
 
 It prints `FAIL` and exits non-zero, saying which, if:
 
 - the ROM is missing, the screen is blank, or one of the images is not on screen;
+- a note fell or music played before Start was pressed;
+- the song did not end with its results, sound came back after the last note, or anything happened while the results were showing;
+- the second play did not start from zero or did not match the first;
 - no sound was produced, or the sound never changed note enough to be a tune (at least three different notes);
 - the number of notes that landed differs from the number heard: a note sounded with nothing falling, or the reverse;
 - a note landed more than two frames, a thirtieth of a second, before or after its sound;
 - a note landed on the wrong marker for its pitch, for example `note 2 (G4) landed on assets/lane_2_up.png, but its pitch G belongs on assets/lane_3_right.png`;
 - a falling note did not move the same distance every frame, which is what would happen if the game ran too slowly to keep up;
-- the counts did not go back to zero when the song started again;
-- any way of pressing gave the wrong counts, for example `with presses 4 frames late, the first 16 notes should score 0 perfect, 16 good, 0 miss but the screen shows 16 perfect, 0 good, 0 miss`.
+- any way of pressing gave the wrong counts, for example `with presses 4 frames late, the 16 notes should score 0 perfect, 16 good, 0 miss but the screen shows 16 perfect, 0 good, 0 miss`.
 
 The check knows neither the tune nor where anything is drawn. It finds everything by looking for the PNGs on the screen, reads the counts by matching digits, and gets the notes from the sound. So after you edit the song, an image, or the layout, there is nothing else to update. What it is told is the game's design, on purpose, so that a ROM which departs from it fails: which pitch belongs to which button and marker, in the `Makefile` as `CHECK_ARGS`, and the two timing windows, at the top of `scripts/check_rom.py`.
 
-Because the song still repeats for ever, the counts are read at a quiet moment: half-way through the longest gap between notes, when all 16 notes of the first time through have been judged and before the score is reset. The check also confirms the reset: just before the first note of the second time through lands, all three counts must read zero.
+The check finds the end of the song by watching for the `RESULTS` heading, so a longer or shorter song needs no change to it.
 
 **How it hears.** Nothing is played out loud. The emulator works out the sound for each frame as a list of numbers, all zero when silent. A plain Game Boy tone switches between off and on at a steady rate, and how fast it switches is the pitch, so the check measures that rate in each frame and names the nearest musical note. A new note starts when the pitch changes, when sound follows silence, or when the same pitch suddenly gets louder again. The check ignores the first second, because the ROM makes a short blip about half a second after starting even with no music. The note names are the usual ones, where D4 is the D just above middle C.
 
@@ -141,7 +149,7 @@ Because the song still repeats for ever, the counts are read at a quiet moment: 
 
 PyBoy prints a warning about "SDL2 binaries from pysdl2-dll". It is informational and can be ignored.
 
-Open the screenshot to see what the ROM drew: notes on their way down, the five lane markers, and below them the latest judgement and the three counts.
+Open the screenshot to see what the ROM drew, a few seconds into the song: notes on their way down, the five lane markers, and below them the latest judgement and the three counts.
 
 ## 6. Install Java (to run Emulicious)
 
@@ -204,6 +212,8 @@ make run
 
 This builds the ROM if needed and opens it in an Emulicious window. Emulicious's Options menu shows which keys act as the Game Boy's buttons and lets you change them.
 
+**If the game suddenly runs many times too fast, music included, it is Emulicious's turbo.** Emulicious has a shortcut that switches turbo on and off, and its release notes say it is the Space key unless you change it. If the key you use for a Game Boy button is also that shortcut, every press of it flips turbo, so every other play races through in a second or two. The game is not at fault: other emulators play it at normal speed, and so does Emulicious when the game is started without a key press. This happened here on 2026-10-05 with the key used for Start, and remapping Start cured it. Change one of the two bindings in Emulicious's Options menu, or untick Turbo in its menu when it happens.
+
 `make run` starts Java through `scripts/java-host.sh` instead of directly. The reason is the VS Code Flatpak: programs started from its terminal run in a sandbox that has no X11 display, and Java needs one to open a window. The script asks Flatpak to start Java on the host, outside the sandbox, with `flatpak-spawn --host`. Outside a Flatpak it just runs Java.
 
 ## 9. Step through the C source in VS Code
@@ -220,7 +230,7 @@ Then:
 
 1. Open `src/game.c` and click to the left of a line number to set a breakpoint, shown as a red dot. The line `falling_active[i] = 1;` is a good first one: it runs each time a note starts to fall.
 2. Press F5.
-3. An Emulicious window opens with the ROM running. Within a second or two the first note starts to fall.
+3. An Emulicious window opens with the ROM showing `PRESS START`. Press Start in it, and the first note starts to fall.
 4. VS Code stops on that line. The Variables panel and hovering over `read_row` or `row_note` show their values. F10 steps to the next line and F5 continues.
 
 What F5 does is set out in `.vscode/launch.json`, with the build step in `.vscode/tasks.json`:
@@ -245,7 +255,7 @@ An image must fit what the original Game Boy can show:
 
 If an image breaks the first two rules, `make` stops and prints an error. The converter itself exits successfully even when it reports an error, and it accepts a fifth shade without complaint when that shade sits in a tile of its own, so `scripts/convert-images.sh` checks its output for both. The converter's full output is kept in `build/NAME.c.log`.
 
-**Several images.** Background tiles are numbered 0 to 255. The text font uses the lower half, so images share numbers 128 to 255: 128 tiles between them. The build hands these out for you. `scripts/convert-images.sh` converts the images in alphabetical order and starts each one where the one before ended, so any number of images can be on screen together without overwriting each other, and you never type a tile number. Today there are ten images using 30 tiles between them: the digits, the falling note, the five lane markers and the three words. The C program reads each image's start from `NAME_TILE_ORIGIN`.
+**Several images.** Background tiles are numbered 0 to 255. The text font uses the lower half, so images share numbers 128 to 255: 128 tiles between them. The build hands these out for you. `scripts/convert-images.sh` converts the images in alphabetical order and starts each one where the one before ended, so any number of images can be on screen together without overwriting each other, and you never type a tile number. Today there are twelve images using 45 tiles between them: the digits, the falling note, the five lane markers and five words or phrases. The C program reads each image's start from `NAME_TILE_ORIGIN`.
 
 Because the numbers depend on the images before, changing any PNG reconverts all of them. Two things stop the build with a message:
 
@@ -278,7 +288,7 @@ In `src/game.c` the mapping is the table `lane_of_pitch`, with one entry for eac
 
 **How they arrive in time.** A note needs time to fall, so the game cannot wait until it hears the note. Instead the reader gets a head start: it begins reading the song one second before the music begins. A note is dropped when the reader reaches its row, falls for exactly one second, and lands as the music reaches the same row. That one second is `LEAD_FRAMES` in `src/game.c`, 60 frames, and a note falls 2 pixels every frame. It starts just above the top edge of the screen, out of sight.
 
-**One clock.** The Game Boy tells the program each time it finishes drawing a frame, sixty times a second, and the music driver runs on that signal. The game counts the same signal and moves the notes once per count. If the game were ever slow and missed one, it does two steps the next time, so the falling notes cannot slip behind the music.
+**One clock.** The Game Boy tells the program each time it finishes drawing a frame, sixty times a second. Two things happen on that signal, in `game_frame`: the frame is counted, and the music driver is run. The rest of the game then deals with each counted frame in turn. If the game were ever slow and missed one, it does two steps the next time, so the falling notes cannot slip behind the music. The music starts and stops on exact frame counts, not on when the game gets round to it, so a slower build of the same code keeps the same time.
 
 **Changing it.** Edit the song and the falling notes follow, with nothing else to change; `make check` will report the new count. To make notes fall for longer or faster, change `LEAD_FRAMES` and `FALL_SPEED` together so that one multiplied by the other is still the distance a note travels, 120 pixels.
 
@@ -299,8 +309,8 @@ The latest judgement is shown under the markers, and below it the three running 
 - **A note is judged once.** A judged note disappears. A note nobody presses carries on a little way past its marker, while a late press could still count, and then becomes a miss.
 - **Stray presses are ignored.** A press with no note within the good window in that lane does nothing: not a miss, no penalty. That includes pressing the wrong lane's button.
 - **If two notes in a lane are both within reach**, the press goes to the one nearest its marker.
-- **Nothing ends the song.** Misses are only counted.
-- **The score starts again with the song.** When the song comes round, the three counts go back to zero and the latest judgement is cleared. This happens as the first note of the new time through begins to fall, a second before the music itself restarts.
+- **You cannot fail.** The song always plays to the end, and misses are only counted.
+- **The score starts again with each play.** Pressing Start sets the three counts to zero and clears the latest judgement.
 
 **Distance is time.** Notes fall at a steady 2 pixels a frame, so the game does not time presses. It measures how far the note is from its marker: 6 pixels is 3 frames, 14 pixels is 7.
 
@@ -310,7 +320,19 @@ The latest judgement is shown under the markers, and below it the three running 
 
 **The words and digits are images**, drawn from PNGs in `assets/` like the markers, not the Game Boy's built-in text. That is what lets `make check` read the counts off the screen. Each count is kept as two separate digits, because dividing by ten to display a number is slow on this hardware. It stops at 99.
 
-**What is not here yet.** The song starts on its own and repeats for ever, so the score you just made is wiped a few seconds after the last note. Start, an ending and a results screen come next.
+## How a play starts and ends
+
+The game is always doing one of three things: waiting, playing, or showing the results.
+
+- **Waiting.** When the ROM opens it shows `PRESS START` and does nothing else. No note falls and no music plays.
+- **Playing.** Start clears the score, removes the prompt, and begins the song. The first note starts to fall at once and the music begins a second later, as it lands. Pressing Start again during the song does nothing.
+- **Results.** The song plays once. When its last row has played, the music stops, and once the last note has been judged a `RESULTS` heading and the prompt appear. The three counts stay where they were during play: they are the results, and they add up to the number of notes in the song. Start plays again from the beginning.
+
+Lane buttons do nothing while waiting or on the results.
+
+**How the game knows the song is over.** The reader, which runs a second ahead of the music, adds up how long each row lasts as it goes. When it reaches the end of the song's last pattern it knows how many frames the song takes, and tells the music to stop after exactly that many. The music then switches the sound hardware off and is no longer run; once more and the driver would start the tune again, which `make check` listens for.
+
+**The results are not a separate screen.** They are the play screen with a heading, so the counts are drawn one way only.
 
 ## How the music works
 
@@ -346,7 +368,7 @@ One trap: the driver names octaves one higher than usual. Its `D_5` sounds as th
 
 **Changing the tune.** Edit a note name in `src/song.c` and run `make check`. The check prints the notes it heard, so the change shows up there without anyone listening: changing `E_5` to `Fs5` turns `... G4 E4 D4` into `... G4 F#4 D4`. To change the speed, change the tempo number at the bottom of the file. To hear it, run `make run`.
 
-**What is not here yet.** One channel, half a verse, no drums and no sound effects. Having the game react in time with the music is for the game itself.
+**What is not here yet.** One channel, half a verse, no drums and no sound effects.
 
 ## Everyday commands
 
@@ -358,6 +380,7 @@ Once the tools are installed, these are all you need. Run them from the reposito
 | `make check` | Builds, then runs the ROM with no window and reports `PASS` or `FAIL` |
 | `make run` | Builds, then opens the ROM in Emulicious to play |
 | `make debug` | Builds the debug ROM in `build/debug/`; F5 in VS Code does this for you |
+| `make check-debug` | Runs the same check on the debug ROM, the one F5 runs |
 | `make clean` | Deletes `build/` |
 
 ## Where things are
@@ -365,9 +388,9 @@ Once the tools are installed, these are all you need. Run them from the reposito
 | Path | What it is | In git? |
 |---|---|---|
 | `src/` | C source for the ROM | yes |
-| `assets/` | PNG images shown by the ROM: the lane markers, the falling note, the judgement words and the digits | yes |
+| `assets/` | PNG images shown by the ROM: the lane markers, the falling note, the words and the digits | yes |
 | `Makefile` | Build and check commands | yes |
-| `src/game.c` | The play screen: the lanes, the falling notes, judging and the counts | yes |
+| `src/game.c` | The game: waiting for Start, the lanes, the falling notes, judging, the counts and the results | yes |
 | `src/song.c` | The song, the first half of a verse of "Amazing Grace", as a table of notes | yes |
 | `scripts/check_rom.py` | The headless check | yes |
 | `scripts/convert-images.sh` | Converts the images to C and hands out their tile numbers | yes |

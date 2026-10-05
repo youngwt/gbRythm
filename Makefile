@@ -3,6 +3,7 @@
 #
 #   make         build the ROM
 #   make check   build, then run the ROM with no window and check it
+#   make check-debug   the same check on the debug ROM
 #   make debug   build a second ROM with debug symbols, for the debugger
 #   make run     build, then open the ROM in Emulicious
 #   make clean   delete everything the build made
@@ -38,7 +39,7 @@ OBJECTS    := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SOURCES)) \
 # never leaves a ROM that looks up to date.
 .DELETE_ON_ERROR:
 
-.PHONY: all check debug run clean require-gbdk require-python require-emulicious require-hugedriver
+.PHONY: all check check-debug debug run clean require-gbdk require-python require-emulicious require-hugedriver
 
 all: $(ROM)
 
@@ -81,10 +82,16 @@ CHECK_ARGS := --falling assets/falling.png \
               --lane G=right=assets/lane_3_right.png --lane A=b=assets/lane_4_b.png \
               --lane B=a=assets/lane_5_a.png \
               --perfect assets/word_perfect.png --good assets/word_good.png \
-              --miss assets/word_miss.png --digits assets/digits.png
+              --miss assets/word_miss.png --digits assets/digits.png \
+              --start assets/word_start.png --results assets/word_results.png
 
 check: $(ROM) | require-python
 	$(PYTHON) scripts/check_rom.py $(ROM) $(BUILD_DIR) $(CHECK_ARGS)
+
+# The same check on the debug ROM, the one F5 runs in VS Code. Its code is
+# built differently and runs slower, so it is worth checking separately.
+check-debug: debug | require-python
+	$(PYTHON) scripts/check_rom.py $(BUILD_DIR)/debug/gbrythm.gb $(BUILD_DIR)/debug $(CHECK_ARGS)
 
 # Build a second ROM for the debugger in build/debug, leaving the normal ROM
 # alone. -debug writes the .cdb file that maps machine code back to C lines.

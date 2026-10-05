@@ -3,6 +3,9 @@
 // lane. Pressing a lane's button as its note lands is judged perfect or
 // good by how close the press was; a note nobody presses in time is a miss.
 //
+// The game waits for Start, plays the song once, and then shows the results
+// until Start is pressed again.
+//
 // The falling notes are not a second copy of the tune. The game reads the
 // song's own rows, the same data the music driver plays, but starts reading
 // LEAD_FRAMES before the music starts. A note that begins on a row is
@@ -24,6 +27,8 @@
 #include "word_good.h"
 #include "word_miss.h"
 #include "word_perfect.h"
+#include "word_results.h"
+#include "word_start.h"
 
 // The five lanes, left to right: the Left, Up and Right buttons, then B,
 // then A. Each has a marker at the bottom showing its button.
@@ -89,11 +94,14 @@ static const uint8_t lane_of_pitch[PITCHES_PER_OCTAVE] = {
 // check, which presses relative to what is on the screen.
 #define JUDGE_Y (LANDED_Y + FALL_SPEED)
 
-// When the music starts, counted in frames from when the reader starts.
-// The reader's head start is what gives a note time to fall. The headless
-// check measures the result: with this value every note lands in the frame
-// its sound starts.
-#define MUSIC_START_FRAME LEAD_FRAMES
+// When the music starts, counted in frames from the frame Start was
+// pressed. LEAD_FRAMES is the reader's head start, which gives a note time
+// to fall. The extra frames are measured, not reasoned: a note is seen on
+// its marker a few frames after the game puts it there, and the driver's
+// first note sounds a frame after the driver is first run. With this value
+// the headless check finds every note landing in the frame its sound starts.
+#define MUSIC_START_FRAME (LEAD_FRAMES + 3)
+
 
 // The most notes that can be falling at once. The quickest notes in the
 // song are 20 frames apart and a note falls for 60, so 4; 8 leaves room.
@@ -121,6 +129,22 @@ static const uint8_t count_y[JUDGEMENTS] = {16, 16, 17};
 static const unsigned char *const word_map[JUDGEMENTS] = {
     word_perfect_map, word_good_map, word_miss_map
 };
+
+// The "RESULTS" heading and the "PRESS START" prompt, in the empty space
+// above the markers, in tiles.
+#define HEADING_TILES 6
+#define HEADING_X 7
+#define HEADING_Y 5
+#define PROMPT_TILES 9
+#define PROMPT_X 5
+#define PROMPT_Y 7
+
+// What the game is doing: waiting for the first Start, playing the song, or
+// showing the results after it.
+#define WAITING 0
+#define PLAYING 1
+#define RESULTS 2
+uint8_t state;
 
 // One slot per sprite: whether a note is falling in it, which lane it is
 // in, and how far down.
@@ -152,8 +176,27 @@ const unsigned char *read_ptr;
 uint8_t read_wait;        // frames until the next row is read
 uint8_t read_instrument;  // the instrument the channel last used
 
-uint8_t music_wait;       // frames until the music starts
-uint8_t music_started;
+// The game's clock. frame_count goes up once every frame, on the vertical
+// blank signal, whatever the main loop is doing. frames_done is how many of
+// those frames the game has dealt with.
+volatile uint8_t frame_count;
+uint8_t frames_done;
+
+// The music is run from the same signal, in game_frame, so that it keeps
+// exact time however long the rest of the game takes. It is off, waiting for
+// its starting frame, or on.
+#define MUSIC_OFF 0
+#define MUSIC_WAITING 1
+#define MUSIC_ON 2
+volatile uint8_t music_state;
+volatile uint8_t music_start_frame;   // the value of frame_count to start on
+volatile uint16_t music_runs_done;    // times the driver has run this play
+volatile uint16_t music_runs_total;   // times it should run, once known
+volatile uint8_t music_total_known;
+
+uint8_t song_read;        // the reader has reached the end of the song
+uint16_t song_frames;     // how long the rows read so far last, in frames
+uint8_t notes_in_play;
 
 uint8_t i;
 uint8_t row_note;
@@ -181,6 +224,8 @@ static void reset_counts(void)
     fill_bkg_rect(LATEST_X, LATEST_Y, WORD_TILES, 1, 0);
 }
 
+static void game_tick(void);
+
 // Point the reader at the first row of the current step's pattern.
 static void read_from_pattern_start(void)
 {
@@ -194,11 +239,16 @@ static void read_next_order(void)
     read_order++;
     // The song stores the count of steps doubled.
     if (read_order == (*proof_song.order_cnt >> 1)) {
+        // That was the last step: the reader has reached the end of the
+        // song, a second ahead of the music. It now knows how many frames
+        // the song lasts: the driver must run exactly that many times, and
+        // once more would start the tune again. The total is
+        // written before the flag that says it is there, because the music
+        // runs on an interrupt and could look at any moment.
         read_order = 0;
-        // The song is starting again, so the score does too. This is the
-        // moment the first note of the new time through begins to fall,
-        // a second before the music itself comes round.
-        reset_counts();
+        song_read = 1;
+        music_runs_total = song_frames;
+        music_total_known = 1;
     }
     read_from_pattern_start();
 }
@@ -222,6 +272,7 @@ static void drop_note(void)
 static void read_one_row(void)
 {
     // A row is DN(note, instrument, effect) packed into three bytes.
+    song_frames += proof_song.tempo;
     row_note = read_ptr[0] & 0x7F;
     row_instrument = ((read_ptr[0] & 0x80) >> 3) | (read_ptr[1] >> 4);
     row_effect = read_ptr[1] & 0x0F;
@@ -313,6 +364,70 @@ static void judge_press(void)
     }
 }
 
+// Run on every vertical blank, by interrupt. Counts the frame and runs the
+// music. Keeping the music here, not in game_tick, means it starts and
+// stops on exact frames even if the game is ever slow.
+void game_frame(void)
+{
+    frame_count++;
+
+    if (music_state == MUSIC_WAITING && frame_count == music_start_frame) {
+        music_state = MUSIC_ON;
+    }
+    if (music_state == MUSIC_ON) {
+        if (music_total_known && music_runs_done == music_runs_total) {
+            // The song is over. Left running, the driver would start the
+            // tune again, so it is no longer called and the sound hardware
+            // is switched off.
+            NR52_REG = 0x00;
+            music_state = MUSIC_OFF;
+        } else {
+            // The driver plays the next step of the song.
+            hUGE_dosound();
+            music_runs_done++;
+        }
+    }
+}
+
+// Begin a play: clear the score and the messages, start reading the song
+// from the top, and book the music to start MUSIC_START_FRAME frames from
+// now.
+static void start_play(void)
+{
+    reset_counts();
+    fill_bkg_rect(HEADING_X, HEADING_Y, HEADING_TILES, 1, 0);
+    fill_bkg_rect(PROMPT_X, PROMPT_Y, PROMPT_TILES, 1, 0);
+
+    read_order = 0;
+    read_from_pattern_start();
+    read_wait = 0;
+    read_instrument = 0;
+    song_read = 0;
+    song_frames = 0;
+
+    // The three registers switch the sound hardware on, send every channel
+    // to both speakers, and set the volume to full. The driver is given the
+    // song now, but nothing calls it until its starting frame.
+    NR52_REG = 0x80;
+    NR51_REG = 0xFF;
+    NR50_REG = 0x77;
+    hUGE_init(&proof_song);
+    music_runs_done = 0;
+    music_total_known = 0;
+    music_start_frame = frames_done + MUSIC_START_FRAME;
+    music_state = MUSIC_WAITING;
+    state = PLAYING;
+}
+
+// The song is over: show the heading and the prompt. The three counts stay
+// where they are; they are the results.
+static void show_results(void)
+{
+    set_bkg_tiles(HEADING_X, HEADING_Y, HEADING_TILES, 1, word_results_map);
+    set_bkg_tiles(PROMPT_X, PROMPT_Y, PROMPT_TILES, 1, word_start_map);
+    state = RESULTS;
+}
+
 void game_init(void)
 {
     // The markers are background tiles, one image per lane. The falling
@@ -338,6 +453,8 @@ void game_init(void)
     set_bkg_data(word_good_TILE_ORIGIN, word_good_TILE_COUNT, word_good_tiles);
     set_bkg_data(word_miss_TILE_ORIGIN, word_miss_TILE_COUNT, word_miss_tiles);
     set_bkg_data(digits_TILE_ORIGIN, digits_TILE_COUNT, digits_tiles);
+    set_bkg_data(word_results_TILE_ORIGIN, word_results_TILE_COUNT, word_results_tiles);
+    set_bkg_data(word_start_TILE_ORIGIN, word_start_TILE_COUNT, word_start_tiles);
     for (judged = 0; judged != JUDGEMENTS; judged++) {
         set_bkg_tiles(count_x[judged], count_y[judged], WORD_TILES, 1, word_map[judged]);
     }
@@ -359,15 +476,31 @@ void game_init(void)
     SHOW_SPRITES;
     DISPLAY_ON;
 
-    read_order = 0;
-    read_from_pattern_start();
-    read_wait = 0;
-    read_instrument = 0;
-    music_wait = MUSIC_START_FRAME;
-    music_started = 0;
+    // Nothing falls and nothing plays until Start is pressed.
+    set_bkg_tiles(PROMPT_X, PROMPT_Y, PROMPT_TILES, 1, word_start_map);
+    music_state = MUSIC_OFF;
+    state = WAITING;
+
+    // Start the clock. From here game_frame runs on every vertical blank.
+    frames_done = 0;
+    __critical {
+        frame_count = 0;
+        add_VBL(game_frame);
+    }
 }
 
-void game_tick(void)
+// Deal with every frame that has passed since the last call. Normally that
+// is one. If the game ever took longer than a frame, this runs it again to
+// catch up, so the falling notes stay in step with the music.
+void game_catch_up(void)
+{
+    while (frames_done != frame_count) {
+        game_tick();
+        frames_done++;
+    }
+}
+
+static void game_tick(void)
 {
     // Read the buttons once per frame. A press counts on the frame the
     // button goes down: held now and not held the frame before. Presses
@@ -376,6 +509,15 @@ void game_tick(void)
     keys = joypad();
     keys_pressed = keys & ~keys_before;
     keys_before = keys;
+
+    // Waiting, or showing the results: only Start does anything.
+    if (state != PLAYING) {
+        if (keys_pressed & J_START) {
+            start_play();
+        }
+        return;
+    }
+
     for (lane = 0; lane != LANES; lane++) {
         if (keys_pressed & lane_button[lane]) {
             judge_press();
@@ -384,8 +526,10 @@ void game_tick(void)
 
     // Move every falling note down. A note carries on past its marker
     // while a late press could still count; after that it is a miss.
+    notes_in_play = 0;
     for (i = 0; i != MAX_FALLING; i++) {
         if (falling_active[i]) {
+            notes_in_play++;
             falling_y[i] += FALL_SPEED;
             if (falling_y[i] > JUDGE_Y + GOOD_PIXELS) {
                 remove_note();
@@ -397,31 +541,17 @@ void game_tick(void)
         }
     }
 
-    // Start the music once the reader has its head start. The three
-    // registers switch the sound hardware on, send every channel to both
-    // speakers, and set the volume to full. The driver is then given the
-    // song and asked to run once per frame; __critical holds interrupts off
-    // while that is set up.
-    if (!music_started) {
-        if (music_wait == 0) {
-            music_started = 1;
-            NR52_REG = 0x80;
-            NR51_REG = 0xFF;
-            NR50_REG = 0x77;
-            __critical {
-                hUGE_init(&proof_song);
-                add_VBL(hUGE_dosound);
-            }
-        } else {
-            music_wait--;
+    if (!song_read) {
+        // Read the next row every `tempo` frames, the same pace the driver
+        // plays them at.
+        if (read_wait == 0) {
+            read_one_row();
+            read_wait = proof_song.tempo;
         }
+        read_wait--;
+    } else if (music_state == MUSIC_OFF && notes_in_play == 0) {
+        // The reader has finished, the music has stopped, and the last
+        // note has been judged.
+        show_results();
     }
-
-    // Read the next row every `tempo` frames, the same pace the driver
-    // plays them at.
-    if (read_wait == 0) {
-        read_one_row();
-        read_wait = proof_song.tempo;
-    }
-    read_wait--;
 }

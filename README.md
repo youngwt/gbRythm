@@ -1,6 +1,6 @@
 # gbRythm
 
-A rhythm game for the original Game Boy, written in C with GBDK-2020. So far the repository holds the development environment and the start of the game: the song plays, its notes fall in five lanes, and presses are judged perfect, good or miss. There is no start or end yet.
+A rhythm game for the original Game Boy, written in C with GBDK-2020. So far the repository holds the development environment and the start of the game: press Start and the song plays once, its notes fall in five lanes, presses are judged perfect, good or miss, and the results follow.
 
 ## Start here
 

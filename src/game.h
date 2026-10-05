@@ -1,10 +1,10 @@
 #ifndef GAME_H
 #define GAME_H
 
-// Draw the play screen and get ready to read the song.
+// Draw the screen, wait for Start, and start the game's clock.
 void game_init(void);
 
-// Advance the game by one frame. Call once for every frame that has passed.
-void game_tick(void);
+// Deal with every frame that has passed since the last call.
+void game_catch_up(void);
 
 #endif

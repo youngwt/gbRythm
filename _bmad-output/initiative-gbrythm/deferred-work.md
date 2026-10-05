@@ -10,3 +10,6 @@
 - source_plan: `_bmad-output/initiative-gbrythm/epic-first-playable/story-the-song-s-notes-fall-in-time-in-one-lane-plan.md`
   summary: An image with no white pixel is converted with its lightest shade treated as white and the others shifted, and the build does not warn.
   evidence: Converting a three-shade copy of `assets/falling.png` on 2026-10-05 gave a palette starting at light grey. The converter numbers the shades it finds, lightest first. `docs/setup.md` now tells the reader to include white; the build could instead check for it or pass the converter a fixed palette.
+- source_plan: `_bmad-output/initiative-gbrythm/epic-first-playable/story-start-begins-the-song-and-results-follow-it-plan.md`
+  summary: The headless check cannot tell if the music is stopped too early at the end of the song, because the song ends on a rest.
+  evidence: Stopping the driver ten frames early still passed `make check` on 2026-10-05; only silence was cut. A song whose last note sounds to the end would need the check to compare that note's length with its rows.
